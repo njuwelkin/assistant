@@ -1,24 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     tools:context=".ui.home.HomeFragment">
 
     <!-- 聊天头部 -->
     <LinearLayout
+        android:id="@+id/chat_header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/purple_500"
-        android:padding="16dp"
-        android:gravity="center">
+        android:paddingTop="0dp"
+        android:paddingBottom="16dp"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
         
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="PocketFlow Chat"
+            android:text="Ai Chat"
             android:textColor="@color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -33,43 +39,57 @@
             android:layout_marginLeft="8dp" />
     </LinearLayout>
 
-    <!-- 消息显示区域 -->
+    <!-- 消息显示区域 - 缩小并确保不遮挡输入区域 -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/messages_recycler_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
         android:padding="8dp"
         android:clipToPadding="false"
-        android:scrollbars="vertical" />
+        android:scrollbars="vertical"
+        app:layout_constraintTop_toBottomOf="@id/chat_header"
+        app:layout_constraintBottom_toTopOf="@id/input_area"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="10dp" />
 
-    <!-- 输入区域 -->
+    <!-- 输入区域 - 固定在底部，确保完全显示 -->
     <LinearLayout
+        android:id="@+id/input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
+        android:layout_marginBottom="56dp"
         android:background="@color/white"
-        android:elevation="4dp">
-        
+        android:elevation="4dp"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:paddingBottom="136dp"
+        android:translationZ="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent">
+
         <EditText
             android:id="@+id/message_input"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:background="@drawable/rounded_corner_input"
             android:hint="Type a message..."
+            android:inputType="textMultiLine"
             android:maxLines="3"
-            android:padding="8dp"
-            android:background="@drawable/rounded_corner_input" />
-        
+            android:minHeight="48dp"
+            android:padding="8dp" />
+
         <Button
             android:id="@+id/send_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Send"
+            android:layout_marginLeft="8dp"
             android:background="@color/purple_500"
-            android:textColor="@color/white"
-            android:layout_marginLeft="8dp" />
+            android:text="Send"
+            android:textColor="@color/white" />
     </LinearLayout>
 
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

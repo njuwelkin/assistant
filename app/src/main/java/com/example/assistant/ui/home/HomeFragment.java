@@ -22,8 +22,21 @@ import com.example.assistant.adapter.MessageAdapter;
 import com.example.assistant.databinding.FragmentHomeBinding;
 import com.example.assistant.model.Message;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -43,8 +56,18 @@ public class HomeFragment extends Fragment {
 
     private WebSocket webSocket;
     private OkHttpClient client;
-    private static final String WEB_SOCKET_URL = "ws://10.0.2.2:8000/ws"; 
+    // WebSocket服务器URL
+    private static final String WEB_SOCKET_URL_BASE = "wss://biubiu.org:443/ws";
+    // 认证Token (硬编码用于测试)
+    private static final String WEB_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMSIsImV4cCI6MTc1OTMwODc5OX0.Yrcdvmq65GtFJmfCxQ-DpiGeU60FjB66BVvs9wCGHl4";
+    // 完整的WebSocket连接URL，包含认证token
+    private static final String WEB_SOCKET_URL = WEB_SOCKET_URL_BASE + "?token=" + WEB_TOKEN;
     private Handler handler;
+
+    // 消息状态跟踪
+    private boolean isStreaming = false;
+    private int currentAiThinkingMessageId = -1;
+    private int currentAiMessageId = -1;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, 
@@ -96,7 +119,43 @@ public class HomeFragment extends Fragment {
     }
 
     private void initWebSocket() {
-        client = new OkHttpClient();
+        // 创建自定义OkHttpClient，配置SSL证书验证
+        OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder();
+        
+        // 添加SSL证书信任逻辑，解决Trust anchor not found问题
+        try {
+            // 获取SSL上下文
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            
+            // 创建信任所有证书的TrustManager
+            TrustManager[] trustAllCerts = new TrustManager[] {
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                    
+                    @Override
+                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                    
+                    @Override
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                        return new java.security.cert.X509Certificate[]{};
+                    }
+                }
+            };
+            
+            // 初始化SSL上下文
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+            
+            // 添加SSL套接字工厂
+            clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager)trustAllCerts[0]);
+            
+            // 忽略主机名验证
+            clientBuilder.hostnameVerifier((hostname, session) -> true);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        client = clientBuilder.build();
         Request request = new Request.Builder().url(WEB_SOCKET_URL).build();
         WebSocketListener webSocketListener = new WebSocketListener() {
             @Override
@@ -109,20 +168,78 @@ public class HomeFragment extends Fragment {
             }
 
             @Override
-            public void onMessage(WebSocket webSocket, String text) {
-                super.onMessage(webSocket, text);
-                handler.post(() -> {
-                    // 模拟AI思考过程
-                    int lastIndex = messageList.size() - 1;
-                    if (lastIndex >= 0 && messageList.get(lastIndex).getType() == Message.TYPE_AI_THINK) {
-                        // 移除思考消息
-                        messageList.remove(lastIndex);
-                        messageAdapter.notifyItemRemoved(lastIndex);
+        public void onMessage(WebSocket webSocket, String text) {
+            super.onMessage(webSocket, text);
+            handler.post(() -> {
+                try {
+                    // 解析JSON消息
+                    JSONObject data = new JSONObject(text);
+                    String type = data.getString("type");
+                    
+                    if ("start".equals(type)) {
+                        // 开始流式响应
+                        isStreaming = true;
+                        
+                        // 创建思考消息
+                        currentAiThinkingMessageId = addMessage("AI is thinking...", Message.TYPE_AI_THINK);
+                        currentAiMessageId = -1;
+                        
+                        statusText.setText("Generating response...");
+                        binding.sendButton.setEnabled(false);
+                        
+                    } else if ("chunk".equals(type)) {
+                        // 处理消息片段
+                        String content = data.getString("content");
+                        
+                        if (content != null && !content.isEmpty()) {
+                            // 如果还没有AI消息，则创建一个
+                            if (currentAiMessageId == -1) {
+                                // 移除思考消息
+                                if (currentAiThinkingMessageId >= 0 && currentAiThinkingMessageId < messageList.size()) {
+                                    messageList.remove(currentAiThinkingMessageId);
+                                    messageAdapter.notifyItemRemoved(currentAiThinkingMessageId);
+                                }
+                                // 添加新的AI消息
+                                currentAiMessageId = addMessage(content, Message.TYPE_AI);
+                            } else {
+                                // 更新现有AI消息
+                                updateMessage(currentAiMessageId, content);
+                            }
+                        }
+                        
+                    } else if ("end".equals(type)) {
+                        // 结束流式响应
+                        isStreaming = false;
+                        currentAiThinkingMessageId = -1;
+                        currentAiMessageId = -1;
+                        binding.sendButton.setEnabled(true);
+                        statusText.setText("(Connected)");
+                        messageInput.requestFocus();
+                        
+                    } else if ("status".equals(type)) {
+                        // 更新状态消息
+                        statusText.setText(data.getString("content"));
+                        
+                    } else if ("confirm".equals(type)) {
+                        // 处理确认消息（可以根据需要实现SQL确认功能）
+                        String confirmContent = data.getString("content");
+                        JSONObject confirmData = new JSONObject(confirmContent);
+                        String conversationId = confirmData.getString("conversation_id");
+                        
+                        // 这里可以添加确认对话框的逻辑
+                        addMessage("需要执行SQL操作，请确认。会话ID: " + conversationId, Message.TYPE_AI_THINK);
+                    } else {
+                        // 处理其他类型的消息或原始文本消息
+                        addMessage(text, Message.TYPE_AI);
                     }
-                    // 添加AI回复
+                    
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                    // 如果不是JSON格式，直接显示消息
                     addMessage(text, Message.TYPE_AI);
-                });
-            }
+                }
+            });
+        }
 
             @Override
             public void onClosing(WebSocket webSocket, int code, String reason) {
@@ -149,28 +266,57 @@ public class HomeFragment extends Fragment {
 
     private void sendMessage() {
         String message = messageInput.getText().toString().trim();
-        if (!message.isEmpty()) {
+        if (!message.isEmpty() && !isStreaming) {
             // 添加用户消息到列表
             addMessage(message, Message.TYPE_USER);
-            
-            // 模拟AI思考过程
-            addMessage("Thinking...", Message.TYPE_AI_THINK);
 
             // 清空输入框
             messageInput.setText("");
 
-            // 通过WebSocket发送消息
+            // 通过WebSocket发送格式化的JSON消息
             if (webSocket != null) {
-                webSocket.send(message);
+                try {
+                    JSONObject messageObj = new JSONObject();
+                    messageObj.put("type", "message");
+                    messageObj.put("content", message);
+                    webSocket.send(messageObj.toString());
+                    statusText.setText("Sending...");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                    // 如果JSON格式化失败，直接发送原始消息
+                    webSocket.send(message);
+                }
             }
         }
     }
 
-    private void addMessage(String content, int type) {
+    // 添加消息并返回索引
+    private int addMessage(String content, int type) {
         messageList.add(new Message(content, type));
-        messageAdapter.notifyItemInserted(messageList.size() - 1);
+        int newMessageIndex = messageList.size() - 1;
+        messageAdapter.notifyItemInserted(newMessageIndex);
         // 滚动到底部
-        messagesRecyclerView.scrollToPosition(messageList.size() - 1);
+        messagesRecyclerView.scrollToPosition(newMessageIndex);
+        return newMessageIndex;
+    }
+    
+    // 更新现有消息的内容
+    private void updateMessage(int messageId, String content) {
+        if (messageId >= 0 && messageId < messageList.size()) {
+            Message message = messageList.get(messageId);
+            String currentContent = message.getContent();
+            
+            // 检查是否是首次更新，如果是则直接设置内容，否则追加内容
+            if (currentContent.isEmpty()) {
+                message.setContent(content);
+            } else {
+                message.setContent(currentContent + content);
+            }
+            
+            messageAdapter.notifyItemChanged(messageId);
+            // 滚动到底部
+            messagesRecyclerView.scrollToPosition(messageList.size() - 1);
+        }
     }
 
     @Override

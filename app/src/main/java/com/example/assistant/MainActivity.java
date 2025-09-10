@@ -19,6 +19,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 隐藏ActionBar，使聊天头部能够顶到上沿
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().hide();
+        }
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
