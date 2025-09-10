@@ -89,7 +89,7 @@ public class HomeFragment extends Fragment {
         messagesRecyclerView.setAdapter(messageAdapter);
 
         // 添加欢迎消息
-        addMessage("Welcome to PocketFlow Chat!", Message.TYPE_AI);
+        //addMessage("Welcome to PocketFlow Chat!", Message.TYPE_AI);
 
         // 初始化Handler
         handler = new Handler(Looper.getMainLooper());
@@ -181,7 +181,7 @@ public class HomeFragment extends Fragment {
                         isStreaming = true;
                         
                         // 创建思考消息
-                        currentAiThinkingMessageId = addMessage("AI is thinking...", Message.TYPE_AI_THINK);
+                        currentAiThinkingMessageId = addMessage("", Message.TYPE_AI_THINK);
                         currentAiMessageId = -1;
                         
                         statusText.setText("Generating response...");
@@ -190,20 +190,28 @@ public class HomeFragment extends Fragment {
                     } else if ("chunk".equals(type)) {
                         // 处理消息片段
                         String content = data.getString("content");
+                        boolean isThinking = data.optBoolean("is_thinking", false);
                         
                         if (content != null && !content.isEmpty()) {
-                            // 如果还没有AI消息，则创建一个
-                            if (currentAiMessageId == -1) {
-                                // 移除思考消息
-                                if (currentAiThinkingMessageId >= 0 && currentAiThinkingMessageId < messageList.size()) {
-                                    messageList.remove(currentAiThinkingMessageId);
-                                    messageAdapter.notifyItemRemoved(currentAiThinkingMessageId);
+                            // 根据is_thinking属性决定更新哪个消息
+                            if (isThinking) {
+                                // 处理思考消息
+                                if (currentAiThinkingMessageId == -1) {
+                                    // 如果还没有思考消息，则创建一个
+                                    currentAiThinkingMessageId = addMessage(content, Message.TYPE_AI_THINK);
+                                } else {
+                                    // 更新现有思考消息
+                                    updateMessage(currentAiThinkingMessageId, content);
                                 }
-                                // 添加新的AI消息
-                                currentAiMessageId = addMessage(content, Message.TYPE_AI);
                             } else {
-                                // 更新现有AI消息
-                                updateMessage(currentAiMessageId, content);
+                                // 处理普通AI消息
+                                if (currentAiMessageId == -1) {
+                                    // 如果还没有AI消息，则创建一个
+                                    currentAiMessageId = addMessage(content, Message.TYPE_AI);
+                                } else {
+                                    // 更新现有AI消息
+                                    updateMessage(currentAiMessageId, content);
+                                }
                             }
                         }
                         
