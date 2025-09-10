@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardBackgroundColor="@color/light_gray"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- 课程名称 -->
+        <TextView
+            android:id="@+id/course_name_text_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="课程名称"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <!-- 课程信息容器 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <!-- 学院 -->
+            <TextView
+                android:id="@+id/course_department_text_view"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="学院"
+                android:textSize="14sp"
+                android:textColor="@color/gray" />
+
+            <!-- 教师 -->
+            <TextView
+                android:id="@+id/course_teacher_text_view"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="教师"
+                android:textSize="14sp"
+                android:textColor="@color/gray" />
+
+        </LinearLayout>
+
+        <!-- 时间和地点 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <!-- 时间 -->
+            <TextView
+                android:id="@+id/course_time_text_view"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="时间"
+                android:textSize="14sp"
+                android:textColor="@color/gray" />
+
+            <!-- 地点 -->
+            <TextView
+                android:id="@+id/course_location_text_view"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="地点"
+                android:textSize="14sp"
+                android:textColor="@color/gray" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

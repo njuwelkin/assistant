@@ -13,9 +13,9 @@
 
     <fragment
         android:id="@+id/navigation_course"
-        android:name="com.example.assistant.ui.dashboard.DashboardFragment"
+        android:name="com.example.assistant.ui.course.CourseFragment"
         android:label="@string/title_course"
-        tools:layout="@layout/fragment_dashboard" />
+        tools:layout="@layout/fragment_course" />
 
     <fragment
         android:id="@+id/navigation_me"
