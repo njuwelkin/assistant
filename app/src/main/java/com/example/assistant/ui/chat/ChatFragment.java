@@ -22,8 +22,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.assistant.R;
+import com.example.assistant.databinding.FragmentChatBinding;
 import com.example.assistant.adapter.MessageAdapter;
-import com.example.assistant.databinding.FragmentHomeBinding;
 import com.example.assistant.model.Message;
 
 import org.json.JSONException;
@@ -49,9 +49,9 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 import okio.ByteString;
 
-public class HomeFragment extends Fragment {
+public class ChatFragment extends Fragment {
 
-    private FragmentHomeBinding binding;
+    private FragmentChatBinding binding;
     private RecyclerView messagesRecyclerView;
     private EditText messageInput;
     private TextView statusText;
@@ -76,7 +76,7 @@ public class HomeFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, 
                              ViewGroup container, Bundle savedInstanceState) {
-        binding = FragmentHomeBinding.inflate(inflater, container, false);
+        binding = FragmentChatBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
 
         // 初始化视图组件
