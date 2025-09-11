@@ -51,6 +51,11 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public int getItemCount() {
         return messageList.size();
     }
+    
+    // 设置消息列表并更新UI
+    public void setMessages(List<Message> messages) {
+        this.messageList = messages;
+    }
 
     @Override
     public int getItemViewType(int position) {

@@ -1,8 +1,6 @@
 package com.example.assistant.ui.home;
 
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.graphics.Rect;
@@ -18,6 +16,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -25,29 +25,10 @@ import com.example.assistant.R;
 import com.example.assistant.databinding.FragmentChatBinding;
 import com.example.assistant.adapter.MessageAdapter;
 import com.example.assistant.model.Message;
+import com.example.assistant.ui.chat.ChatViewModel;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
-import okio.ByteString;
 
 public class ChatFragment extends Fragment {
 
@@ -56,22 +37,7 @@ public class ChatFragment extends Fragment {
     private EditText messageInput;
     private TextView statusText;
     private MessageAdapter messageAdapter;
-    private List<Message> messageList;
-
-    private WebSocket webSocket;
-    private OkHttpClient client;
-    // WebSocket服务器URL
-    private static final String WEB_SOCKET_URL_BASE = "wss://biubiu.org:443/ws";
-    // 认证Token (硬编码用于测试)
-    private static final String WEB_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMSIsImV4cCI6MTc1OTMwODc5OX0.Yrcdvmq65GtFJmfCxQ-DpiGeU60FjB66BVvs9wCGHl4";
-    // 完整的WebSocket连接URL，包含认证token
-    private static final String WEB_SOCKET_URL = WEB_SOCKET_URL_BASE + "?token=" + WEB_TOKEN;
-    private Handler handler;
-
-    // 消息状态跟踪
-    private boolean isStreaming = false;
-    private int currentAiThinkingMessageId = -1;
-    private int currentAiMessageId = -1;
+    private ChatViewModel chatViewModel;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, 
@@ -84,19 +50,45 @@ public class ChatFragment extends Fragment {
         messageInput = binding.messageInput;
         statusText = binding.statusText;
 
-        // 初始化消息列表和适配器
-        messageList = new ArrayList<>();
-        messageAdapter = new MessageAdapter(messageList);
+        // 初始化ViewModel
+        chatViewModel = new ViewModelProvider(this).get(ChatViewModel.class);
+
+        // 初始化消息适配器
+        messageAdapter = new MessageAdapter(new ArrayList<>());
 
         // 设置RecyclerView
         messagesRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         messagesRecyclerView.setAdapter(messageAdapter);
 
-        // 添加欢迎消息
-        //addMessage("Welcome to PocketFlow Chat!", Message.TYPE_AI);
+        // 观察消息列表变化
+        chatViewModel.getMessageListLiveData().observe(getViewLifecycleOwner(), new Observer<List<Message>>() {
+            @Override
+            public void onChanged(List<Message> messages) {
+                messageAdapter.setMessages(messages);
+                messageAdapter.notifyDataSetChanged();
+                // 滚动到底部
+                if (messages.size() > 0) {
+                    messagesRecyclerView.scrollToPosition(messages.size() - 1);
+                }
+            }
+        });
 
-        // 初始化Handler
-        handler = new Handler(Looper.getMainLooper());
+        // 观察连接状态变化
+        chatViewModel.getConnectionStatusLiveData().observe(getViewLifecycleOwner(), new Observer<String>() {
+            @Override
+            public void onChanged(String status) {
+                statusText.setText(status);
+            }
+        });
+
+        // 观察是否正在流式处理
+        chatViewModel.getIsStreamingLiveData().observe(getViewLifecycleOwner(), new Observer<Boolean>() {
+            @Override
+            public void onChanged(Boolean isStreaming) {
+                // 根据流式处理状态更新发送按钮状态
+                binding.sendButton.setEnabled(messageInput.getText().toString().trim().length() > 0 && !isStreaming);
+            }
+        });
 
         // 设置发送按钮点击事件
         binding.sendButton.setOnClickListener(v -> sendMessage());
@@ -108,8 +100,12 @@ public class ChatFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                // 输入框有内容时启用发送按钮
-                binding.sendButton.setEnabled(s.toString().trim().length() > 0);
+                // 输入框有内容且不在流式处理时启用发送按钮
+                if (chatViewModel.getIsStreamingLiveData().getValue() != null) {
+                    binding.sendButton.setEnabled(s.toString().trim().length() > 0 && !chatViewModel.getIsStreamingLiveData().getValue());
+                } else {
+                    binding.sendButton.setEnabled(s.toString().trim().length() > 0);
+                }
             }
 
             @Override
@@ -118,9 +114,6 @@ public class ChatFragment extends Fragment {
 
         // 添加键盘和布局变化监听器，动态调整输入区域位置
         setupKeyboardVisibilityListener(root);
-
-        // 初始化WebSocket连接
-        initWebSocket();
 
         return root;
     }
@@ -186,225 +179,24 @@ public class ChatFragment extends Fragment {
         return 80; // 默认值
     }
 
-    private void initWebSocket() {
-        // 创建自定义OkHttpClient，配置SSL证书验证
-        OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder();
-        
-        // 添加SSL证书信任逻辑，解决Trust anchor not found问题
-        try {
-            // 获取SSL上下文
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            
-            // 创建信任所有证书的TrustManager
-            TrustManager[] trustAllCerts = new TrustManager[] {
-                new X509TrustManager() {
-                    @Override
-                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
-                    
-                    @Override
-                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
-                    
-                    @Override
-                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                        return new java.security.cert.X509Certificate[]{};
-                    }
-                }
-            };
-            
-            // 初始化SSL上下文
-            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-            
-            // 添加SSL套接字工厂
-            clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager)trustAllCerts[0]);
-            
-            // 忽略主机名验证
-            clientBuilder.hostnameVerifier((hostname, session) -> true);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        
-        client = clientBuilder.build();
-        Request request = new Request.Builder().url(WEB_SOCKET_URL).build();
-        WebSocketListener webSocketListener = new WebSocketListener() {
-            @Override
-            public void onOpen(WebSocket webSocket, Response response) {
-                super.onOpen(webSocket, response);
-                handler.post(() -> {
-                    statusText.setText("(Connected)");
-                    //addMessage("Connected to server", Message.TYPE_AI_THINK);
-                });
-            }
-
-            @Override
-        public void onMessage(WebSocket webSocket, String text) {
-            super.onMessage(webSocket, text);
-            handler.post(() -> {
-                try {
-                    // 解析JSON消息
-                    JSONObject data = new JSONObject(text);
-                    String type = data.getString("type");
-                    
-                    if ("start".equals(type)) {
-                        // 开始流式响应
-                        isStreaming = true;
-                        
-                        // 创建思考消息
-                        currentAiThinkingMessageId = addMessage("", Message.TYPE_AI_THINK);
-                        currentAiMessageId = -1;
-                        
-                        statusText.setText("Generating response...");
-                        binding.sendButton.setEnabled(false);
-                        
-                    } else if ("chunk".equals(type)) {
-                        // 处理消息片段
-                        String content = data.getString("content");
-                        boolean isThinking = data.optBoolean("is_thinking", false);
-                        
-                        if (content != null && !content.isEmpty()) {
-                            // 根据is_thinking属性决定更新哪个消息
-                            if (isThinking) {
-                                // 处理思考消息
-                                if (currentAiThinkingMessageId == -1) {
-                                    // 如果还没有思考消息，则创建一个
-                                    currentAiThinkingMessageId = addMessage(content, Message.TYPE_AI_THINK);
-                                } else {
-                                    // 更新现有思考消息
-                                    updateMessage(currentAiThinkingMessageId, content);
-                                }
-                            } else {
-                                // 处理普通AI消息
-                                if (currentAiMessageId == -1) {
-                                    // 如果还没有AI消息，则创建一个
-                                    currentAiMessageId = addMessage(content, Message.TYPE_AI);
-                                } else {
-                                    // 更新现有AI消息
-                                    updateMessage(currentAiMessageId, content);
-                                }
-                            }
-                        }
-                        
-                    } else if ("end".equals(type)) {
-                        // 结束流式响应
-                        isStreaming = false;
-                        currentAiThinkingMessageId = -1;
-                        currentAiMessageId = -1;
-                        binding.sendButton.setEnabled(true);
-                        statusText.setText("(Connected)");
-                        messageInput.requestFocus();
-                        
-                    } else if ("status".equals(type)) {
-                        // 更新状态消息
-                        statusText.setText(data.getString("content"));
-                        
-                    } else if ("confirm".equals(type)) {
-                        // 处理确认消息（可以根据需要实现SQL确认功能）
-                        String confirmContent = data.getString("content");
-                        JSONObject confirmData = new JSONObject(confirmContent);
-                        String conversationId = confirmData.getString("conversation_id");
-                        
-                        // 这里可以添加确认对话框的逻辑
-                        addMessage("需要执行SQL操作，请确认。会话ID: " + conversationId, Message.TYPE_AI_THINK);
-                    } else {
-                        // 处理其他类型的消息或原始文本消息
-                        addMessage(text, Message.TYPE_AI);
-                    }
-                    
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                    // 如果不是JSON格式，直接显示消息
-                    addMessage(text, Message.TYPE_AI);
-                }
-            });
-        }
-
-            @Override
-            public void onClosing(WebSocket webSocket, int code, String reason) {
-                super.onClosing(webSocket, code, reason);
-                handler.post(() -> {
-                    statusText.setText("(Disconnected)");
-                    addMessage("Disconnected from server", Message.TYPE_AI_THINK);
-                });
-            }
-
-            @Override
-            public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                super.onFailure(webSocket, t, response);
-                handler.post(() -> {
-                    statusText.setText("(Connection Failed)");
-                    addMessage("Failed to connect to server: " + t.getMessage(), Message.TYPE_AI_THINK);
-                    Toast.makeText(getContext(), "Connection failed: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-            }
-        };
-
-        webSocket = client.newWebSocket(request, webSocketListener);
-    }
+    // WebSocket相关逻辑现在由ChatViewModel处理，不再需要这些方法
 
     private void sendMessage() {
         String message = messageInput.getText().toString().trim();
-        if (!message.isEmpty() && !isStreaming) {
-            // 添加用户消息到列表
-            addMessage(message, Message.TYPE_USER);
+        if (!message.isEmpty() && chatViewModel.getIsStreamingLiveData().getValue() != null && !chatViewModel.getIsStreamingLiveData().getValue()) {
+            // 使用ViewModel发送消息
+            chatViewModel.sendMessage(message);
 
             // 清空输入框
             messageInput.setText("");
-
-            // 通过WebSocket发送格式化的JSON消息
-            if (webSocket != null) {
-                try {
-                    JSONObject messageObj = new JSONObject();
-                    messageObj.put("type", "message");
-                    messageObj.put("content", message);
-                    webSocket.send(messageObj.toString());
-                    statusText.setText("Sending...");
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                    // 如果JSON格式化失败，直接发送原始消息
-                    webSocket.send(message);
-                }
-            }
         }
     }
 
-    // 添加消息并返回索引
-    private int addMessage(String content, int type) {
-        messageList.add(new Message(content, type));
-        int newMessageIndex = messageList.size() - 1;
-        messageAdapter.notifyItemInserted(newMessageIndex);
-        // 滚动到底部
-        messagesRecyclerView.scrollToPosition(newMessageIndex);
-        return newMessageIndex;
-    }
-    
-    // 更新现有消息的内容
-    private void updateMessage(int messageId, String content) {
-        if (messageId >= 0 && messageId < messageList.size()) {
-            Message message = messageList.get(messageId);
-            String currentContent = message.getContent();
-            
-            // 检查是否是首次更新，如果是则直接设置内容，否则追加内容
-            if (currentContent.isEmpty()) {
-                message.setContent(content);
-            } else {
-                message.setContent(currentContent + content);
-            }
-            
-            messageAdapter.notifyItemChanged(messageId);
-            // 滚动到底部
-            messagesRecyclerView.scrollToPosition(messageList.size() - 1);
-        }
-    }
+    // 消息的添加和更新现在由ViewModel处理，不再需要这些方法
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // 关闭WebSocket连接
-        if (webSocket != null) {
-            webSocket.close(1000, "Fragment destroyed");
-        }
-        if (client != null) {
-            client.dispatcher().executorService().shutdown();
-        }
         binding = null;
     }
 }
