@@ -12,15 +12,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/purple_500"
-        android:paddingTop="0dp"
-        android:paddingBottom="16dp"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
         android:gravity="center"
-        app:layout_constraintTop_toTopOf="parent"
+        android:paddingLeft="16dp"
+        android:paddingTop="0dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-        
+        app:layout_constraintTop_toTopOf="parent">
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -28,15 +28,15 @@
             android:textColor="@color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
-        
+
         <TextView
             android:id="@+id/status_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
             android:text="(Connecting...)"
             android:textColor="@color/white"
-            android:textSize="12sp"
-            android:layout_marginLeft="8dp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <!-- 消息显示区域 - 缩小并确保不遮挡输入区域 -->
@@ -44,26 +44,24 @@
         android:id="@+id/messages_recycler_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:padding="8dp"
+        android:layout_marginBottom="10dp"
         android:clipToPadding="false"
+        android:padding="8dp"
         android:scrollbars="vertical"
-        app:layout_constraintTop_toBottomOf="@id/chat_header"
         app:layout_constraintBottom_toTopOf="@id/input_area"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginBottom="10dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/chat_header" />
 
-    <!-- 输入区域 - 固定在底部，确保完全显示 -->
+    <!-- 输入区域 - 使用灵活的底部约束，确保在键盘弹出和导航栏变化时都能显示 -->
     <LinearLayout
         android:id="@+id/input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="56dp"
         android:background="@color/white"
         android:elevation="4dp"
         android:orientation="horizontal"
         android:padding="16dp"
-        android:paddingBottom="136dp"
         android:translationZ="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

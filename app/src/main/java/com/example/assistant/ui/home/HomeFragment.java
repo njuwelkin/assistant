@@ -5,9 +5,13 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.graphics.Rect;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.view.WindowInsets;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -112,10 +116,74 @@ public class HomeFragment extends Fragment {
             public void afterTextChanged(Editable s) {}
         });
 
+        // 添加键盘和布局变化监听器，动态调整输入区域位置
+        setupKeyboardVisibilityListener(root);
+
         // 初始化WebSocket连接
         initWebSocket();
 
         return root;
+    }
+
+    // 设置键盘可见性监听器，动态调整输入区域位置
+    private void setupKeyboardVisibilityListener(final View rootView) {
+        // 使用DecorView来监听布局变化，这是检测键盘状态的更可靠方式
+        View decorView = getActivity().getWindow().getDecorView();
+        decorView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                if (isAdded() && getContext() != null) {
+                    // 获取窗口可见区域的rect
+                    Rect rect = new Rect();
+                    decorView.getWindowVisibleDisplayFrame(rect);
+                    
+                    // 计算屏幕高度和可见区域高度
+                    int screenHeight = decorView.getRootView().getHeight();
+                    int visibleHeight = rect.bottom - rect.top;
+                    
+                    // 计算差值，判断键盘是否弹出
+                    int heightDiff = screenHeight - visibleHeight;
+                    
+                    // 如果差值超过屏幕高度的1/3，认为键盘弹出
+                    boolean isKeyboardVisible = heightDiff > screenHeight / 3;
+                    
+                    // 获取底部导航栏高度
+                    int navBarHeight = getNavigationBarHeight();
+                    
+                    // 根据键盘状态调整输入区域的底部边距
+                    ViewGroup.MarginLayoutParams params = 
+                        (ViewGroup.MarginLayoutParams) binding.inputArea.getLayoutParams();
+                    
+                    if (isKeyboardVisible) {
+                        // 键盘弹出时，减少底部边距，确保输入框可见
+                        params.bottomMargin = heightDiff + navBarHeight - 60; // 小边距
+                    } else {
+                        // 键盘收起时，增加底部边距，避开导航栏
+                        params.bottomMargin = navBarHeight + 100; // 导航栏高度+小边距
+                    }
+                    
+                    binding.inputArea.requestLayout();
+                }
+            }
+        });
+    }
+
+    // 获取导航栏高度
+    private int getNavigationBarHeight() {
+        if (getContext() == null) return 0;
+        
+        WindowInsets insets = getActivity().getWindow().getDecorView().getRootWindowInsets();
+        if (insets != null) {
+            return insets.getStableInsetBottom();
+        }
+        
+        // 兼容旧版本的备用方法
+        int resourceId = getResources().getIdentifier("navigation_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            return getResources().getDimensionPixelSize(resourceId);
+        }
+        
+        return 80; // 默认值
     }
 
     private void initWebSocket() {
@@ -163,7 +231,7 @@ public class HomeFragment extends Fragment {
                 super.onOpen(webSocket, response);
                 handler.post(() -> {
                     statusText.setText("(Connected)");
-                    addMessage("Connected to server", Message.TYPE_AI_THINK);
+                    //addMessage("Connected to server", Message.TYPE_AI_THINK);
                 });
             }
 
