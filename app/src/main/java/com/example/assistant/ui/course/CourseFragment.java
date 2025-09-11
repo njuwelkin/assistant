@@ -6,20 +6,22 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
-import com.example.assistant.R;
-import com.example.assistant.databinding.FragmentDashboardBinding;
 import com.example.assistant.databinding.FragmentCourseBinding;
-import com.example.assistant.ui.course.adapter.CourseAdapter;
+import com.example.assistant.ui.course.adapter.CourseTabAdapter;
+import com.example.assistant.ui.course.tab.CoursesFragment;
+import com.example.assistant.R;
 import com.example.assistant.ui.course.model.Course;
+import com.example.assistant.ui.course.CourseViewModel;
+
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -31,7 +33,7 @@ public class CourseFragment extends Fragment {
 
     private FragmentCourseBinding binding;
     private CourseViewModel courseViewModel;
-    private CourseAdapter courseAdapter;
+    private CourseTabAdapter courseTabAdapter;
     private Calendar calendar;
     private int currentMonth;
     private int currentYear;
@@ -53,11 +55,29 @@ public class CourseFragment extends Fragment {
         dayTextViews = new TextView[42]; // 最大6行7列
         initDayTextViews();
 
-        // 设置RecyclerView
-        RecyclerView recyclerView = binding.courseRecyclerView;
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        courseAdapter = new CourseAdapter();
-        recyclerView.setAdapter(courseAdapter);
+        // 设置ViewPager2和TabLayout
+        ViewPager2 viewPager = binding.viewPager;
+        TabLayout tabLayout = binding.tabLayout;
+        
+        // 初始化标签页适配器
+        courseTabAdapter = new CourseTabAdapter(getActivity());
+        viewPager.setAdapter(courseTabAdapter);
+        
+        // 连接TabLayout和ViewPager2
+        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+            // 设置标签文本
+            switch (position) {
+                case 0:
+                    tab.setText("课程");
+                    break;
+                case 1:
+                    tab.setText("作业");
+                    break;
+                case 2:
+                    tab.setText("活动");
+                    break;
+            }
+        }).attach();
 
         // 初始化UI
         updateCalendar();
@@ -68,9 +88,16 @@ public class CourseFragment extends Fragment {
         binding.prevMonthButton.setOnClickListener(v -> { onPrevMonth(); });
         binding.nextMonthButton.setOnClickListener(v -> { onNextMonth(); });
 
-        // 监听课程数据变化
+        // 监听课程数据变化，将数据传递给课程标签页Fragment
         courseViewModel.getCourses().observe(getViewLifecycleOwner(), courses -> {
-            courseAdapter.setCourses(courses);
+            Log.d("CourseFragment", "接收到课程数据更新，数量: " + (courses != null ? courses.size() : 0));
+            if (courseTabAdapter != null) {
+                CoursesFragment coursesFragment = courseTabAdapter.getCoursesFragment();
+                Log.d("CourseFragment", "CoursesFragment实例: " + (coursesFragment != null ? "不为空" : "为空"));
+                if (coursesFragment != null) {
+                    coursesFragment.setCourses(courses);
+                }
+            }
         });
 
         return root;
@@ -192,9 +219,7 @@ public class CourseFragment extends Fragment {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         String dateStr = dateFormat.format(date);
         courseViewModel.loadCourses(dateStr);
-        
-        // 更新选中日期显示
-        binding.selectedDateTextView.setText(dateFormat.format(date));
+
     }
 
     @Override

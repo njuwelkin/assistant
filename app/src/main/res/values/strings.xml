@@ -3,4 +3,6 @@
     <string name="title_chat">Chat</string>
     <string name="title_course">Course</string>
     <string name="title_me">Me</string>
+    <string name="assignments_empty_text">暂无作业数据</string>
+    <string name="activities_empty_text">暂无活动数据</string>
 </resources>

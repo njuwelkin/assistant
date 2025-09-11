@@ -221,7 +221,7 @@ public class ChatViewModel extends ViewModel {
                 super.onClosing(webSocket, code, reason);
                 handler.post(() -> {
                     connectionStatusLiveData.setValue("(Disconnected)");
-                    addMessage("Disconnected from server", Message.TYPE_AI_THINK);
+                    //addMessage("Disconnected from server", Message.TYPE_AI_THINK);
                     
                     // 尝试重新连接
                     if (!isReconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
@@ -235,7 +235,7 @@ public class ChatViewModel extends ViewModel {
                 super.onFailure(webSocket, t, response);
                 handler.post(() -> {
                     connectionStatusLiveData.setValue("(Connection Failed)");
-                    addMessage("Failed to connect to server: " + t.getMessage(), Message.TYPE_AI_THINK);
+                    //addMessage("Failed to connect to server: " + t.getMessage(), Message.TYPE_AI_THINK);
                     
                     // 尝试重新连接
                     if (!isReconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {

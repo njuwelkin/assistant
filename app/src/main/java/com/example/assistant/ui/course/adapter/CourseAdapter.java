@@ -30,10 +30,7 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.CourseView
     public void onBindViewHolder(@NonNull CourseViewHolder holder, int position) {
         Course course = courses.get(position);
         holder.courseNameTextView.setText(course.getName());
-        holder.courseDepartmentTextView.setText(course.getDepartment());
-        holder.courseTeacherTextView.setText(course.getTeacher());
         holder.courseTimeTextView.setText(course.getTime());
-        holder.courseLocationTextView.setText(course.getLocation());
     }
 
     @Override
@@ -48,18 +45,12 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.CourseView
 
     static class CourseViewHolder extends RecyclerView.ViewHolder {
         TextView courseNameTextView;
-        TextView courseDepartmentTextView;
-        TextView courseTeacherTextView;
         TextView courseTimeTextView;
-        TextView courseLocationTextView;
 
         public CourseViewHolder(@NonNull View itemView) {
             super(itemView);
             courseNameTextView = itemView.findViewById(R.id.course_name_text_view);
-            courseDepartmentTextView = itemView.findViewById(R.id.course_department_text_view);
-            courseTeacherTextView = itemView.findViewById(R.id.course_teacher_text_view);
             courseTimeTextView = itemView.findViewById(R.id.course_time_text_view);
-            courseLocationTextView = itemView.findViewById(R.id.course_location_text_view);
         }
     }
 }
