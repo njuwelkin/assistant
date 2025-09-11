@@ -16,6 +16,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.example.assistant.databinding.FragmentCourseBinding;
 import com.example.assistant.ui.course.adapter.CourseTabAdapter;
 import com.example.assistant.ui.course.tab.CoursesFragment;
+import com.example.assistant.ui.course.tab.AssignmentsFragment;
 import com.example.assistant.R;
 import com.example.assistant.ui.course.model.Course;
 import com.example.assistant.ui.course.CourseViewModel;
@@ -96,6 +97,18 @@ public class CourseFragment extends Fragment {
                 Log.d("CourseFragment", "CoursesFragment实例: " + (coursesFragment != null ? "不为空" : "为空"));
                 if (coursesFragment != null) {
                     coursesFragment.setCourses(courses);
+                }
+            }
+        });
+        
+        // 监听作业数据变化，将数据传递给作业标签页Fragment
+        courseViewModel.getAssignments().observe(getViewLifecycleOwner(), assignments -> {
+            Log.d("CourseFragment", "接收到作业数据更新，数量: " + (assignments != null ? assignments.size() : 0));
+            if (courseTabAdapter != null) {
+                AssignmentsFragment assignmentsFragment = courseTabAdapter.getAssignmentsFragment();
+                Log.d("CourseFragment", "AssignmentsFragment实例: " + (assignmentsFragment != null ? "不为空" : "为空"));
+                if (assignmentsFragment != null) {
+                    assignmentsFragment.setAssignments(assignments);
                 }
             }
         });
@@ -215,11 +228,12 @@ public class CourseFragment extends Fragment {
     }
 
     private void loadCoursesForDate(Date date) {
-        // 加载指定日期的课程
+        // 加载指定日期的课程和作业
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         String dateStr = dateFormat.format(date);
         courseViewModel.loadCourses(dateStr);
-
+        // 当ViewModel中加载课程时，会自动同时加载对应的作业数据
+        Log.d("CourseFragment", "已加载日期: " + dateStr + " 的课程和作业数据");
     }
 
     @Override

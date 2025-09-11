@@ -20,6 +20,7 @@ import com.example.assistant.databinding.FragmentCoursesBinding;
 import com.example.assistant.ui.course.adapter.CourseAdapter;
 import com.example.assistant.ui.course.CourseViewModel;
 import com.example.assistant.ui.course.model.Course;
+import com.example.assistant.ui.course.model.Assignment;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -38,10 +39,19 @@ public class CoursesFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
-        // 观察ViewModel数据变化，使用getViewLifecycleOwner()
+        // 观察课程数据变化
         courseViewModel.getCourses().observe(getViewLifecycleOwner(), courses -> {
             Log.d("CoursesFragment", "观察到课程数据更新，数量: " + (courses != null ? courses.size() : 0));
-            if (courses != null && !courses.isEmpty()) {
+            
+            // 处理空数据情况
+            if (courses == null || courses.isEmpty()) {
+                Log.d("CoursesFragment", "课程数据为空，显示空状态");
+                binding.emptyCoursesText.setVisibility(View.VISIBLE);
+                binding.courseRecyclerView.setVisibility(View.GONE);
+            } else {
+                // 有课程数据，显示列表并隐藏空状态
+                binding.emptyCoursesText.setVisibility(View.GONE);
+                binding.courseRecyclerView.setVisibility(View.VISIBLE);
                 setCourses(courses);
             }
         });

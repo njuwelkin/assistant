@@ -53,4 +53,10 @@ public class CourseTabAdapter extends FragmentStateAdapter {
         Log.d("CourseTabAdapter", "返回CoursesFragment实例: " + (coursesFragment != null ? "不为空" : "为空"));
         return coursesFragment;
     }
+    
+    // 获取作业标签页Fragment，用于外部更新数据
+    public AssignmentsFragment getAssignmentsFragment() {
+        Log.d("CourseTabAdapter", "返回AssignmentsFragment实例: " + (assignmentsFragment != null ? "不为空" : "为空"));
+        return assignmentsFragment;
+    }
 }
