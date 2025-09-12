@@ -8,6 +8,7 @@ import android.util.Log;
 
 import com.example.assistant.ui.course.model.Course;
 import com.example.assistant.ui.course.model.Assignment;
+import com.example.assistant.ui.course.model.Activity;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -27,9 +28,9 @@ public class CourseViewModel extends ViewModel {
         return _assignments;
     }
     
-    // 活动数据（暂时为空）
-    private final MutableLiveData<List<Object>> _activities = new MutableLiveData<>(new ArrayList<>());
-    public LiveData<List<Object>> getActivities() {
+    // 活动数据
+    private final MutableLiveData<List<Activity>> _activities = new MutableLiveData<>(new ArrayList<>());
+    public LiveData<List<Activity>> getActivities() {
         return _activities;
     }
 
@@ -66,6 +67,20 @@ public class CourseViewModel extends ViewModel {
         Log.d("CourseViewModel", "生成作业数据数量: " + assignments.size());
         _assignments.setValue(assignments);
         Log.d("CourseViewModel", "作业数据已设置到LiveData");
+        
+        // 同时加载该日期的活动
+        loadActivities(date);
+    }
+    
+    // 加载指定日期的活动
+    public void loadActivities(String date) {
+        Log.d("CourseViewModel", "加载日期: " + date + " 的活动数据");
+        // 这里应该是从API或数据库加载活动数据
+        // 为了演示，我们创建一些模拟活动数据
+        List<Activity> activities = generateMockActivities(date);
+        Log.d("CourseViewModel", "生成活动数据数量: " + activities.size());
+        _activities.setValue(activities);
+        Log.d("CourseViewModel", "活动数据已设置到LiveData");
     }
 
     // 生成模拟课程数据
@@ -180,5 +195,91 @@ public class CourseViewModel extends ViewModel {
         }
         
         return assignments;
+    }
+
+    // 生成模拟活动数据
+    private List<Activity> generateMockActivities(String date) {
+        List<Activity> activities = new ArrayList<>();
+        
+        // 获取日期中的日部分
+        String dayOfMonth = date.substring(date.lastIndexOf('-') + 1);
+        int day = Integer.parseInt(dayOfMonth);
+        
+        // 根据不同日期生成不同的活动数据
+        if (day % 5 == 1) {
+            activities.add(new Activity(
+                    "activity-" + date + "-1",
+                    "班级图书角阅读分享会",
+                    "分享你最近读过的好书，交流阅读心得",
+                    date,
+                    "下午 3:30-4:30",
+                    "教室",
+                    false
+            ));
+        } else if (day % 5 == 2) {
+            activities.add(new Activity(
+                    "activity-" + date + "-1",
+                    "数学兴趣小组活动",
+                    "趣味数学题解题大赛",
+                    date,
+                    "下午 3:30-4:30",
+                    "教室",
+                    false
+            ));
+        } else if (day % 5 == 3) {
+            activities.add(new Activity(
+                    "activity-" + date + "-1",
+                    "美术手工制作课",
+                    "环保材料创作比赛",
+                    date,
+                    "下午 3:30-4:30",
+                    "美术室",
+                    false
+            ));
+        } else if (day % 5 == 4) {
+            activities.add(new Activity(
+                    "activity-" + date + "-1",
+                    "班级运动会准备",
+                    "为下周运动会进行赛前训练",
+                    date,
+                    "下午 3:30-4:30",
+                    "操场",
+                    false
+            ));
+        } else {
+            activities.add(new Activity(
+                    "activity-" + date + "-1",
+                    "班级主题班会",
+                    "文明礼仪伴我行主题讨论",
+                    date,
+                    "下午 3:30-4:30",
+                    "教室",
+                    false
+            ));
+            activities.add(new Activity(
+                    "activity-" + date + "-2",
+                    "英语角活动",
+                    "英语日常对话练习",
+                    date,
+                    "下午 4:30-5:30",
+                    "校园花园",
+                    false
+            ));
+        }
+        
+        // 添加一些通用的学校活动
+        if (day % 7 == 0) {
+            activities.add(new Activity(
+                    "activity-" + date + "-special",
+                    "学校升旗仪式",
+                    "全校师生参加的升旗仪式",
+                    date,
+                    "上午 7:30-8:00",
+                    "操场",
+                    false
+            ));
+        }
+        
+        return activities;
     }
 }

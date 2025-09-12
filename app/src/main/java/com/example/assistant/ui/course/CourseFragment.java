@@ -17,9 +17,11 @@ import com.example.assistant.databinding.FragmentCourseBinding;
 import com.example.assistant.ui.course.adapter.CourseTabAdapter;
 import com.example.assistant.ui.course.tab.CoursesFragment;
 import com.example.assistant.ui.course.tab.AssignmentsFragment;
+import com.example.assistant.ui.course.tab.ActivitiesFragment;
 import com.example.assistant.R;
 import com.example.assistant.ui.course.model.Course;
 import com.example.assistant.ui.course.CourseViewModel;
+import com.example.assistant.ui.course.model.Activity;
 
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
@@ -109,6 +111,17 @@ public class CourseFragment extends Fragment {
                 Log.d("CourseFragment", "AssignmentsFragment实例: " + (assignmentsFragment != null ? "不为空" : "为空"));
                 if (assignmentsFragment != null) {
                     assignmentsFragment.setAssignments(assignments);
+                }
+            }
+        });
+        
+        // 监听活动数据变化，将数据传递给活动标签页Fragment
+        courseViewModel.getActivities().observe(getViewLifecycleOwner(), activities -> {
+            Log.d("CourseFragment", "接收到活动数据更新，数量: " + (activities != null ? activities.size() : 0));
+            if (courseTabAdapter != null) {
+                ActivitiesFragment activitiesFragment = courseTabAdapter.getActivitiesFragment();
+                if (activitiesFragment != null) {
+                    activitiesFragment.setActivities(activities);
                 }
             }
         });
