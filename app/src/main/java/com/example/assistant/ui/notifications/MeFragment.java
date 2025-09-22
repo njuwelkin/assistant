@@ -12,10 +12,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import java.io.File;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.example.assistant.LoginActivity;
@@ -48,6 +51,16 @@ public class MeFragment extends Fragment {
 
         // 观察ViewModel中的数据变化并更新UI
         observeViewModelData();
+        
+        // 只从本地获取头像文件，不再访问服务器
+        String localAvatarPath = MeViewModel.checkLocalAvatarFile(requireContext());
+        if (localAvatarPath != null) {
+            // 如果本地有头像文件，直接设置到ViewModel中显示
+            meViewModel.updateAvatarUri(localAvatarPath);
+            Log.d(TAG, "Found local avatar file, using it directly: " + localAvatarPath);
+        } else {
+            Log.d(TAG, "No local avatar file found");
+        }
 
         // 设置头像点击事件
         binding.avatarImage.setOnClickListener(v -> showAvatarOptions());
@@ -93,7 +106,22 @@ public class MeFragment extends Fragment {
         // 观察头像URI变化
         meViewModel.getAvatarUri().observe(getViewLifecycleOwner(), uri -> {
             if (uri != null && !uri.isEmpty()) {
-                binding.avatarImage.setImageURI(Uri.parse(uri));
+                try {
+                    // 创建文件对象
+                    File avatarFile = new File(uri);
+                    if (avatarFile.exists()) {
+                        // 使用FileProvider生成安全的URI
+                        Uri avatarUri = FileProvider.getUriForFile(
+                                requireContext(),
+                                requireContext().getPackageName() + ".fileprovider",
+                                avatarFile);
+                        binding.avatarImage.setImageURI(avatarUri);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to load avatar: " + uri, e);
+                    // 如果使用FileProvider失败，尝试直接使用Uri
+                    binding.avatarImage.setImageURI(Uri.parse(uri));
+                }
             }
         });
 
@@ -145,6 +173,17 @@ public class MeFragment extends Fragment {
         String endTime = meViewModel.getTimePeriodEnd().getValue();
         if (startTime != null && endTime != null) {
             binding.timePeriodValue.setText(startTime + " - " + endTime);
+        }
+    }
+
+    /**
+     * 加载本地头像文件
+     */
+    private void loadLocalAvatar() {
+        String localAvatarPath = MeViewModel.checkLocalAvatarFile(requireContext());
+        if (localAvatarPath != null) {
+            meViewModel.updateAvatarUri(localAvatarPath);
+            Log.d(TAG, "Loaded local avatar file: " + localAvatarPath);
         }
     }
 
@@ -207,7 +246,11 @@ public class MeFragment extends Fragment {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = requireContext().getExternalFilesDir(null);
-        return File.createTempFile(imageFileName, ".jpg", storageDir);
+        File image = File.createTempFile(imageFileName, ".jpg", storageDir);
+        
+        // 保存文件路径，以便在拍照后使用
+        currentPhotoPath = image.getAbsolutePath();
+        return image;
     }
 
     /**
@@ -217,18 +260,88 @@ public class MeFragment extends Fragment {
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == getActivity().RESULT_OK) {
-            // 拍照成功，这里可以处理照片
-            // 由于我们在拍照时指定了输出路径，可以直接使用currentPhotoPath
-            if (currentPhotoPath != null) {
-                // 这里可以进行图片处理，然后设置到头像上
-                Toast.makeText(requireContext(), "头像已更新", Toast.LENGTH_SHORT).show();
+        if (resultCode == getActivity().RESULT_OK) {
+            if (requestCode == REQUEST_IMAGE_CAPTURE && currentPhotoPath != null) {
+                // 拍照成功，将临时文件保存为正式头像文件
+                try {
+                    File tempFile = new File(currentPhotoPath);
+                    if (tempFile.exists()) {
+                        // 读取文件内容
+                        byte[] avatarData = java.nio.file.Files.readAllBytes(tempFile.toPath());
+                        // 保存为正式头像文件（会自动替换原文件）
+                    String newAvatarPath = meViewModel.saveAvatarToFile(requireContext(), avatarData);
+                    if (newAvatarPath != null) {
+                        meViewModel.updateAvatarUri(newAvatarPath);
+                        
+                        // 直接更新头像显示，确保UI立即刷新
+                        try {
+                            File avatarFile = new File(newAvatarPath);
+                            if (avatarFile.exists()) {
+                                Uri avatarUri = FileProvider.getUriForFile(
+                                        requireContext(),
+                                        requireContext().getPackageName() + ".fileprovider",
+                                        avatarFile);
+                                binding.avatarImage.setImageURI(avatarUri);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to directly update avatar image", e);
+                        }
+                        
+                        Toast.makeText(requireContext(), "头像已更新", Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Avatar updated from camera: " + newAvatarPath);
+                        
+                        // 强制刷新整个页面
+                        refreshFragment();
+                    }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to save captured avatar", e);
+                    Toast.makeText(requireContext(), "更新头像失败", Toast.LENGTH_SHORT).show();
+                }
+            } else if (requestCode == REQUEST_IMAGE_PICK && data != null) {
+                // 从相册选择成功，保存为正式头像文件
+                try {
+                    Uri selectedImage = data.getData();
+                    if (selectedImage != null) {
+                        // 读取Uri内容
+                        java.io.InputStream inputStream = requireContext().getContentResolver().openInputStream(selectedImage);
+                        if (inputStream != null) {
+                            byte[] avatarData = new byte[inputStream.available()];
+                            inputStream.read(avatarData);
+                            inputStream.close();
+                            
+                            // 保存为正式头像文件（会自动替换原文件）
+                            String newAvatarPath = meViewModel.saveAvatarToFile(requireContext(), avatarData);
+                            if (newAvatarPath != null) {
+                                meViewModel.updateAvatarUri(newAvatarPath);
+                                
+                                // 直接更新头像显示，确保UI立即刷新
+                                try {
+                                    File avatarFile = new File(newAvatarPath);
+                                    if (avatarFile.exists()) {
+                                        Uri avatarUri = FileProvider.getUriForFile(
+                                                requireContext(),
+                                                requireContext().getPackageName() + ".fileprovider",
+                                                avatarFile);
+                                        binding.avatarImage.setImageURI(avatarUri);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to directly update avatar image", e);
+                                }
+                                
+                                Toast.makeText(requireContext(), "头像已更新", Toast.LENGTH_SHORT).show();
+                                Log.d(TAG, "Avatar updated from gallery: " + newAvatarPath);
+                                
+                                // 强制刷新整个页面
+                                refreshFragment();
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to save selected avatar", e);
+                    Toast.makeText(requireContext(), "更新头像失败", Toast.LENGTH_SHORT).show();
+                }
             }
-        } else if (requestCode == REQUEST_IMAGE_PICK && resultCode == getActivity().RESULT_OK && data != null) {
-            // 从相册选择成功
-            Uri selectedImage = data.getData();
-            binding.avatarImage.setImageURI(selectedImage);
-            Toast.makeText(requireContext(), "头像已更新", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -336,6 +449,22 @@ public class MeFragment extends Fragment {
                 })
                 .setNegativeButton("取消", null)
                 .show();
+    }
+
+    /**
+     * 强制刷新整个Fragment页面
+     */
+    private void refreshFragment() {
+        if (getFragmentManager() != null) {
+            // 创建当前Fragment的新实例
+            FragmentTransaction transaction = getFragmentManager().beginTransaction();
+            // 替换当前Fragment为新实例
+            MeFragment newFragment = new MeFragment();
+            transaction.replace(getId(), newFragment);
+            // 提交事务
+            transaction.commit();
+            Log.d(TAG, "Fragment refreshed to show updated avatar");
+        }
     }
 
     @Override
