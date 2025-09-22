@@ -44,6 +44,15 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // 检查用户是否已登录
+        if (AuthManager.isLoggedIn(this)) {
+            // 如果用户已登录，直接跳转到主页面
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
+            return;
+        }
+        
         setContentView(R.layout.activity_login);
 
         // 隐藏ActionBar
