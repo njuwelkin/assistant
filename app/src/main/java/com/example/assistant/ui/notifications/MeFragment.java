@@ -18,8 +18,11 @@ import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
-import com.example.assistant.R;
+import com.example.assistant.LoginActivity;
 import com.example.assistant.databinding.FragmentMeBinding;
+import com.example.assistant.ui.chat.ChatViewModel;
+import com.example.assistant.ui.notifications.MeViewModel;
+import com.example.assistant.util.AuthManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,6 +37,7 @@ public class MeFragment extends Fragment {
 
     private FragmentMeBinding binding;
     private String currentPhotoPath;
+    private MeViewModel meViewModel;
 
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentMeBinding.inflate(inflater, container, false);
@@ -143,8 +147,6 @@ public class MeFragment extends Fragment {
             binding.timePeriodValue.setText(startTime + " - " + endTime);
         }
     }
-
-    private MeViewModel meViewModel;
 
     /**
      * 显示头像选择选项（拍照或从相册选择）
@@ -314,23 +316,26 @@ public class MeFragment extends Fragment {
                 .setPositiveButton("确定", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        performLogout();
+                        // 断开WebSocket连接以释放资源
+                        try {
+                            ChatViewModel chatViewModel = new ViewModelProvider(requireActivity()).get(ChatViewModel.class);
+                            chatViewModel.disconnectWebSocket();
+                        } catch (Exception e) {
+                            Log.d(TAG, "断开WebSocket连接失败", e);
+                        }
+                        
+                        // 清除认证信息
+                        AuthManager.clearAuthInfo(requireContext());
+                        
+                        // 跳转到登录页面
+                        Intent intent = new Intent(requireContext(), LoginActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        requireActivity().finish();
                     }
                 })
                 .setNegativeButton("取消", null)
                 .show();
-    }
-
-    /**
-     * 执行退出登录操作
-     */
-    private void performLogout() {
-        // 这里可以实现退出登录的逻辑，如清除用户数据、跳转到登录页面等
-        Toast.makeText(requireContext(), "已退出登录", Toast.LENGTH_SHORT).show();
-        // 实际项目中这里应该清除用户凭证并跳转到登录页面
-        // Intent intent = new Intent(getActivity(), LoginActivity.class);
-        // startActivity(intent);
-        // getActivity().finish();
     }
 
     @Override

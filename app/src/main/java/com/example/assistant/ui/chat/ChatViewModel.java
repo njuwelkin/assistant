@@ -3,11 +3,13 @@ package com.example.assistant.ui.chat;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
 import com.example.assistant.model.Message;
+import com.example.assistant.util.AuthManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -37,11 +39,9 @@ public class ChatViewModel extends ViewModel {
     
     // WebSocket服务器URL
     private static final String WEB_SOCKET_URL_BASE = "wss://biubiu.org:443/ws";
-    // 认证Token (硬编码用于测试)
-    private static final String WEB_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMSIsImV4cCI6MTc1OTMwODc5OX0.Yrcdvmq65GtFJmfCxQ-DpiGeU60FjB66BVvs9wCGHl4";
-    // 完整的WebSocket连接URL，包含认证token
-    private static final String WEB_SOCKET_URL = WEB_SOCKET_URL_BASE + "?token=" + WEB_TOKEN;
-    
+    // 上下文引用
+    private Context applicationContext;
+
     // 数据存储
     private final MutableLiveData<List<Message>> messageListLiveData = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<String> connectionStatusLiveData = new MutableLiveData<>("(Connecting...)");
@@ -63,8 +63,28 @@ public class ChatViewModel extends ViewModel {
         // 初始化Handler
         handler = new Handler(Looper.getMainLooper());
         
+        // 尝试获取ApplicationContext
+        try {
+            applicationContext = getApplication();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get application context", e);
+        }
+        
         // 初始化WebSocket连接
         initWebSocket();
+    }
+    
+    // 获取Application对象的方法
+    private Context getApplication() {
+        try {
+            // 使用反射获取Application实例
+            Object activityThread = Class.forName("android.app.ActivityThread").getMethod("currentActivityThread").invoke(null);
+            Context application = (Context) Class.forName("android.app.ActivityThread").getMethod("getApplication").invoke(activityThread);
+            return application;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get application context", e);
+            return null;
+        }
     }
     
     // 获取消息列表的LiveData
@@ -125,7 +145,17 @@ public class ChatViewModel extends ViewModel {
         }
         
         client = clientBuilder.build();
-        Request request = new Request.Builder().url(WEB_SOCKET_URL).build();
+        
+        // 获取认证token
+        String token = "";
+        if (applicationContext != null) {
+            token = AuthManager.getAuthToken(applicationContext);
+        }
+        
+        // 构建WebSocket URL
+        String webSocketUrl = WEB_SOCKET_URL_BASE + "?token=" + (token != null ? token : "");
+        
+        Request request = new Request.Builder().url(webSocketUrl).build();
         WebSocketListener webSocketListener = new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
@@ -247,7 +277,7 @@ public class ChatViewModel extends ViewModel {
 
         webSocket = client.newWebSocket(request, webSocketListener);
     }
-    
+
     // 安排重新连接
     private void scheduleReconnect() {
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {

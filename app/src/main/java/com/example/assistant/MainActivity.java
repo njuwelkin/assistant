@@ -1,6 +1,9 @@
 package com.example.assistant;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.Window;
+import android.view.WindowManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -11,6 +14,7 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.assistant.databinding.ActivityMainBinding;
+import com.example.assistant.util.AuthManager;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -19,6 +23,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // 检查登录状态
+        if (!AuthManager.isLoggedIn(this)) {
+            // 如果用户未登录或登录已超时，跳转到登录页面
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
+
         // 隐藏ActionBar，使聊天头部能够顶到上沿
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();

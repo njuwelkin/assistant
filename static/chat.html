@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PocketFlow Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .chat-container { 
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 600px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .status {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .messages { 
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .message { 
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        
+        .user-message { 
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .ai-message { 
+            background: #f1f3f4;
+            color: #888;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .ai-think-message { 
+            background: #f1f3f4;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        /* SQL 对话框样式 */
+        .confirm-dialog {
+            background: #1c526f;
+            color: #ccc;
+            font-family: Monaco, Consolas, 'Courier New', monospace;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 80%;
+            overflow: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .confirm-dialog pre {
+            margin: 0;
+            white-space: pre-wrap;
+            tab-size: 4;
+        }
+
+        /* SQL 语法高亮 */
+        .sql-keyword { color: #569cd6; }
+        .sql-string { color: #ce9178; }
+        .sql-function { color: #dcdcaa; }
+        .sql-comment { color: #6a9955; }
+
+        /* 按钮容器样式 */
+        .dialog-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* 基础按钮样式 */
+        .dialog-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        /* 确认按钮特效 */
+        .confirm-btn {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            box-shadow: 0 2px 6px rgba(72, 187, 120, 0.3);
+        }
+
+        .confirm-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(72, 187, 120, 0.4);
+        }
+        
+        .confirm-btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            opacity: 0.7;
+            box-shadow: none;
+        }
+        
+        .input-container { 
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            gap: 12px;
+        }
+        
+        #messageInput { 
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 25px;
+            background: white;
+            font-size: 15px;
+            outline: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #messageInput::placeholder {
+            color: #999;
+        }
+        
+        #sendButton { 
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #sendButton:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        #sendButton:disabled { 
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .messages::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h1>PocketFlow Chat</h1>
+                <button id="logoutButton" style="padding: 8px 16px; background: #e53e3e; color: white; border: none; border-radius: 20px; cursor: pointer;">Logout</button>
+            </div>
+            <div class="status" id="status">Connecting...</div>
+        </div>
+        
+        <div class="messages" id="messages"></div>
+        
+        <div class="input-container">
+            <textarea id="messageInput" rows="4" cols="50" placeholder="Type your message..." disabled></textarea>
+            <button id="sendButton" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+        // 检查是否有token
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        // 创建带token的WebSocket连接
+        //const ws = new WebSocket(`ws://localhost:8000/ws?token=${encodeURIComponent(token)}`);
+        // 解析URL参数，检查是否有mock=true
+        const urlParams = new URLSearchParams(window.location.search);
+        const useMock = urlParams.get('mock') === 'true';
+        const isAssistant = urlParams.get('assistant') === 'true';
+        
+	const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const wsEndpoint = useMock ? '/mock/ws' : isAssistant ? '/assistant/ws' : '/ws';
+        const ws = new WebSocket(`${wsProtocol}${window.location.host}${wsEndpoint}?token=${encodeURIComponent(token)}`);
+
+        // 登出功能
+        document.getElementById('logoutButton').addEventListener('click', function() {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        });
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const statusDiv = document.getElementById('status');
+        
+        let isStreaming = false;
+        let currentAiMessage = null;
+
+        ws.onopen = function() {
+            statusDiv.textContent = 'Connected';
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.focus();
+        };
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'start') {
+                isStreaming = true;
+                currentAiThinking = document.createElement('div');
+                currentAiThinking.className = 'message ai-message';
+                messagesDiv.appendChild(currentAiThinking);
+
+                confirmMessages = document.createElement('div');
+                confirmMessages.className = 'message ai-think-message';
+                messagesDiv.appendChild(confirmMessages);
+
+                currentAiMessage = document.createElement('div');
+                currentAiMessage.className = 'message ai-think-message';
+                messagesDiv.appendChild(currentAiMessage);
+
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                sendButton.disabled = true;
+                statusDiv.textContent = 'AI is typing...';
+                
+            } else if (data.type === 'chunk') {
+                if (data.is_thinking) {
+                    if (currentAiThinking) {
+                        currentAiThinking.innerHTML += data.content.replace(/\n/g, '<br>');
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+                } else {
+                    if (currentAiMessage) {
+                        currentAiMessage.innerHTML += data.content.replace(/\n/g, '<br>');
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+                }
+                
+            } else if (data.type === 'end') {
+                isStreaming = false;
+                currentAiThinking = null;
+                currentAiMessage = null;
+                sendButton.disabled = false;
+                statusDiv.textContent = 'Connected';
+                messageInput.focus();
+            } else if (data.type === 'status') {
+                statusDiv.textContent = data.content;
+            } else if (data.type === "confirm") {
+                if (currentAiThinking) {
+                    statusDiv.textContent = "Confirm";
+                    currentAiThinking.innerHTML += "Need your confirmation:"
+                    const confirm_content = JSON.parse(data.content)
+                    conversation_id = confirm_content.conversation_id
+                    confirm_list = confirm_content.confirm_list
+                    
+                    //dialog.innerHTML = data.content;
+                    for (let i = 0; i < confirm_list.length; i++) {
+                        dialog = document.createElement('div');
+                        dialog.className = 'message confirm-dialog';
+                        currentAiThinking.appendChild(dialog);
+                        dialog.innerHTML += confirm_list[i];
+                    }
+                    const buttonContainer = document.createElement('div');
+                    buttonContainer.className = 'dialog-buttons';
+                    currentAiThinking.appendChild(buttonContainer);
+                    
+                    const confirmBtn = document.createElement('button');
+                    const cancelBtn = document.createElement('button');
+
+                    confirmBtn.className = 'dialog-btn confirm-btn';
+                    confirmBtn.textContent = 'Confirm';
+                    confirmBtn.id = 'ConfirmBtn';
+                    confirmBtn.onclick = () => {
+                        //ws.send(JSON.stringify({ type: 'confirm' }));
+                        confirmBtn.disabled = true;
+                        cancelBtn.disabled = true;
+                        ws.send(JSON.stringify({
+                            type: 'confirm',
+                            conversation_id: conversation_id,
+                            content: "confirmed",
+                        }));
+                    };
+                    buttonContainer.appendChild(confirmBtn)
+
+                    cancelBtn.className = 'dialog-btn confirm-btn';
+                    cancelBtn.textContent = 'Cancel';
+                    cancelBtn.id = 'CancelBtn';
+                    cancelBtn.onclick = () => {
+                        //ws.send(JSON.stringify({ type: 'confirm' }));
+                        confirmBtn.disabled = true;
+                        cancelBtn.disabled = true;
+                        ws.send(JSON.stringify({
+                            type: 'confirm',
+                            conversation_id: conversation_id,
+                            content: "canceled",
+                        }));
+                    };
+                    buttonContainer.appendChild(cancelBtn)
+
+                }
+            }
+        };
+
+        ws.onclose = function(event) {
+            statusDiv.textContent = 'Disconnected';
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            
+            // 如果是因为认证失败关闭的连接，重定向到登录页面
+            if (event.code === 1008) {
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+            }
+        };
+
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && !isStreaming) {
+                const userMessage = document.createElement('div');
+                userMessage.className = 'message user-message';
+                //userMessage.textContent = message;
+                userMessage.innerHTML = message.replace(/\n/g, '<br>');
+                messagesDiv.appendChild(userMessage);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+                ws.send(JSON.stringify({
+                    type: 'message',
+                    content: message
+                }));
+
+                messageInput.value = '';
+                statusDiv.textContent = 'Sending...';
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
+
+

@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/light_gray"
+    android:fillViewport="true"
     tools:context=".ui.notifications.MeFragment">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/light_gray">
 
     <!-- 个人信息头部区域 -->
     <LinearLayout
@@ -296,15 +302,22 @@
         android:layout_height="8dp"
         android:background="@color/light_gray" />
 
-    <!-- 退出按钮 -->
+    <!-- 退出按钮 - 添加阴影效果增强立体感，增加底部边距避免被导航栏遮挡 -->
     <Button
         android:id="@+id/logout_button"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:layout_margin="20dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
+        android:layout_marginBottom="160dp"
         android:backgroundTint="@color/red"
         android:text="退出登录"
         android:textColor="@color/white"
         android:textSize="18sp"
-        android:textAllCaps="false" />
-</LinearLayout>
+        android:textAllCaps="false"
+        android:elevation="4dp"
+        android:focusable="true"
+        android:focusableInTouchMode="true" />
+    </LinearLayout>
+</ScrollView>
