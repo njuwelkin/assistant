@@ -10,9 +10,10 @@ import androidx.lifecycle.ViewModel;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
+import com.example.assistant.util.DatabaseHelper;
 import com.example.assistant.util.AuthManager;
 
 public class MeViewModel extends ViewModel {
@@ -36,6 +37,9 @@ public class MeViewModel extends ViewModel {
     
     // 头像文件保存的目录
     private static final String AVATAR_DIR = "images";
+    
+    // 数据库帮助类
+    private DatabaseHelper databaseHelper;
 
     public MeViewModel() {
         // 初始化默认值
@@ -46,6 +50,16 @@ public class MeViewModel extends ViewModel {
         timePeriodStart.setValue("08:00"); // 默认开始时间
         timePeriodEnd.setValue("22:00"); // 默认结束时间
         cacheSize.setValue("5.2MB"); // 模拟缓存大小
+    }
+    
+    // 初始化数据库帮助类
+    public void initDatabase(Context context) {
+        if (databaseHelper == null) {
+            databaseHelper = new DatabaseHelper(context);
+            // 检查家长密码是否已设置
+            boolean isSet = databaseHelper.isParentPasswordSet();
+            parentPasswordSet.setValue(isSet);
+        }
     }
 
     /**
@@ -157,15 +171,52 @@ public class MeViewModel extends ViewModel {
     }
 
     // 设置家长密码
+    // 设置家长密码
     public void setParentPassword(String password) {
-        // 实际应用中应该有密码加密和存储逻辑
-        parentPasswordSet.setValue(true);
+        if (databaseHelper != null) {
+            String hashedPassword = hashPassword(password);
+            boolean success = databaseHelper.saveParentPassword(hashedPassword);
+            if (success) {
+                parentPasswordSet.setValue(true);
+                Log.d("MeViewModel", "家长密码设置成功");
+            } else {
+                Log.e("MeViewModel", "家长密码设置失败");
+            }
+        }
+    }
+    
+    // 验证家长密码
+    public boolean verifyParentPassword(String password) {
+        if (databaseHelper != null) {
+            String storedPassword = databaseHelper.getParentPassword();
+            String hashedPassword = hashPassword(password);
+            return hashedPassword != null && hashedPassword.equals(storedPassword);
+        }
+        return false;
     }
 
     // 清除家长密码
     public void clearParentPassword() {
-        // 实际应用中应该有清除密码的逻辑
+        if (databaseHelper != null) {
+            databaseHelper.clearParentPassword();
+        }
         parentPasswordSet.setValue(false);
+    }
+    
+    // 密码加密（使用SHA-256）
+    private String hashPassword(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = md.digest(password.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            Log.e("MeViewModel", "密码加密失败: " + e.getMessage());
+            return null;
+        }
     }
 
     // 获取最后登录时间的LiveData
@@ -216,5 +267,14 @@ public class MeViewModel extends ViewModel {
     // 设置缓存大小
     public void setCacheSize(String size) {
         cacheSize.setValue(size);
+    }
+    
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        // 清理资源
+        if (databaseHelper != null) {
+            databaseHelper.close();
+        }
     }
 }

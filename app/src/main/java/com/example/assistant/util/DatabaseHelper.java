@@ -8,12 +8,10 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import java.util.concurrent.TimeUnit;
-
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "DatabaseHelper";
     private static final String DATABASE_NAME = "auth_db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2; // 增加版本号以支持家长密码表
 
     // 认证表名
     private static final String TABLE_AUTH = "auth";
@@ -22,11 +20,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_TOKEN = "token";
     private static final String COLUMN_LOGIN_TIME = "login_time";
 
-    // 创建表的SQL语句
+    // 家长密码表名
+    private static final String TABLE_PARENT_PASSWORD = "parent_password";
+    // 家长密码表字段
+    private static final String COLUMN_PASSWORD_HASH = "password_hash";
+    private static final String COLUMN_CREATED_TIME = "created_time";
+
+    // 创建认证表的SQL语句
     private static final String CREATE_AUTH_TABLE = "CREATE TABLE " + TABLE_AUTH + "(" +
             COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
             COLUMN_TOKEN + " TEXT, " +
             COLUMN_LOGIN_TIME + " INTEGER" +
+            ");";
+
+    // 创建家长密码表的SQL语句
+    private static final String CREATE_PARENT_PASSWORD_TABLE = "CREATE TABLE " + TABLE_PARENT_PASSWORD + "(" +
+            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            COLUMN_PASSWORD_HASH + " TEXT NOT NULL, " +
+            COLUMN_CREATED_TIME + " INTEGER NOT NULL" +
             ");";
 
     public DatabaseHelper(@Nullable Context context) {
@@ -37,13 +48,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         // 创建认证表
         db.execSQL(CREATE_AUTH_TABLE);
+        // 创建家长密码表
+        db.execSQL(CREATE_PARENT_PASSWORD_TABLE);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // 如果数据库版本更新，删除旧表并创建新表
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_AUTH);
-        onCreate(db);
+        // 如果是从版本1升级到版本2，添加家长密码表
+        if (oldVersion < 2) {
+            db.execSQL(CREATE_PARENT_PASSWORD_TABLE);
+        }
     }
 
     // 保存认证信息
@@ -96,6 +110,60 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.close();
         }
         return loginTime;
+    }
+    
+    // 保存家长密码
+    public boolean saveParentPassword(String passwordHash) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        try {
+            // 先删除旧的密码信息
+            db.delete(TABLE_PARENT_PASSWORD, null, null);
+            // 插入新的密码信息
+            db.execSQL("INSERT INTO " + TABLE_PARENT_PASSWORD + "(" + COLUMN_PASSWORD_HASH + ", " + COLUMN_CREATED_TIME + ") VALUES(?, ?)",
+                    new Object[]{passwordHash, System.currentTimeMillis()});
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save parent password", e);
+            return false;
+        } finally {
+            db.close();
+        }
+    }
+    
+    // 获取家长密码
+    public String getParentPassword() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String passwordHash = null;
+        try {
+            Cursor cursor = db.query(TABLE_PARENT_PASSWORD, new String[]{COLUMN_PASSWORD_HASH}, null, null, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                passwordHash = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PASSWORD_HASH));
+                cursor.close();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get parent password", e);
+        } finally {
+            db.close();
+        }
+        return passwordHash;
+    }
+    
+    // 检查家长密码是否已设置
+    public boolean isParentPasswordSet() {
+        String passwordHash = getParentPassword();
+        return passwordHash != null && !passwordHash.isEmpty();
+    }
+    
+    // 清除家长密码
+    public void clearParentPassword() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        try {
+            db.delete(TABLE_PARENT_PASSWORD, null, null);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to clear parent password", e);
+        } finally {
+            db.close();
+        }
     }
 
     // 清除认证信息

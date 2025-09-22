@@ -13,6 +13,9 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,14 +25,11 @@ import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.example.assistant.LoginActivity;
+import com.example.assistant.R;
 import com.example.assistant.databinding.FragmentMeBinding;
 import com.example.assistant.ui.chat.ChatViewModel;
 import com.example.assistant.ui.notifications.MeViewModel;
 import com.example.assistant.util.AuthManager;
-
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class MeFragment extends Fragment {
@@ -349,10 +349,12 @@ public class MeFragment extends Fragment {
      * 导航到家长密码设置页面
      */
     private void navigateToParentPasswordSettings() {
-        // 这里可以实现跳转到家长密码设置页面的逻辑
-        Toast.makeText(requireContext(), "跳转到家长密码设置页面", Toast.LENGTH_SHORT).show();
-        // 实际项目中这里应该使用Navigation组件进行页面跳转
-        // NavHostFragment.findNavController(this).navigate(R.id.action_navigation_me_to_parentPasswordFragment);
+        // 跳转到家长密码设置页面
+        ParentPasswordFragment fragment = new ParentPasswordFragment();
+        FragmentTransaction transaction = requireActivity().getSupportFragmentManager().beginTransaction();
+        transaction.replace(R.id.nav_host_fragment_activity_main, fragment);
+        transaction.addToBackStack(null);
+        transaction.commit();
     }
 
     /**

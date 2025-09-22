@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <!-- 圆角 -->
+    <corners android:radius="10dp" />
+    <!-- 背景色 -->
+    <solid android:color="@color/purple_500" />
+    <!-- 按下时的状态变化 -->
+    <ripple android:color="@android:color/white" android:radius="10dp" />
+</shape>
