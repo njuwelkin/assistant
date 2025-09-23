@@ -161,12 +161,30 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 e.printStackTrace();
             }
             
+            // 根据消息的确认状态设置按钮和标题
+            int confirmStatus = message.getConfirmStatus();
+            if (confirmStatus == Message.STATUS_CONFIRMED) {
+                confirmButton.setEnabled(false);
+                cancelButton.setEnabled(false);
+                confirmTitle.setText("已确认");
+            } else if (confirmStatus == Message.STATUS_CANCELED) {
+                confirmButton.setEnabled(false);
+                cancelButton.setEnabled(false);
+                confirmTitle.setText("已取消");
+            } else {
+                // 待处理状态，按钮可用
+                confirmButton.setEnabled(true);
+                cancelButton.setEnabled(true);
+                confirmTitle.setText("需要确认");
+            }
+            
             // 设置确认按钮点击事件
             final String finalConversationId = conversationId;
             confirmButton.setOnClickListener(v -> {
-                if (listener != null) {
+                if (listener != null && message.getConfirmStatus() == Message.STATUS_PENDING) {
                     listener.onConfirm(finalConversationId);
-                    // 禁用按钮防止重复点击
+                    // 立即更新UI状态以提供即时反馈
+                    message.setConfirmStatus(Message.STATUS_CONFIRMED);
                     confirmButton.setEnabled(false);
                     cancelButton.setEnabled(false);
                     confirmTitle.setText("已确认");
@@ -175,9 +193,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             
             // 设置取消按钮点击事件
             cancelButton.setOnClickListener(v -> {
-                if (listener != null) {
+                if (listener != null && message.getConfirmStatus() == Message.STATUS_PENDING) {
                     listener.onCancel(finalConversationId);
-                    // 禁用按钮防止重复点击
+                    // 立即更新UI状态以提供即时反馈
+                    message.setConfirmStatus(Message.STATUS_CANCELED);
                     confirmButton.setEnabled(false);
                     cancelButton.setEnabled(false);
                     confirmTitle.setText("已取消");

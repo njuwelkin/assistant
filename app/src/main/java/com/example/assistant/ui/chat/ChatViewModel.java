@@ -398,6 +398,9 @@ public class ChatViewModel extends ViewModel {
                 messageObj.put("content", "confirmed");
                 webSocket.send(messageObj.toString());
                 connectionStatusLiveData.setValue("Sending confirmation...");
+                
+                // 更新对应消息的状态为已确认
+                updateMessageStatusByConversationId(conversationId, Message.STATUS_CONFIRMED);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -414,8 +417,42 @@ public class ChatViewModel extends ViewModel {
                 messageObj.put("content", "canceled");
                 webSocket.send(messageObj.toString());
                 connectionStatusLiveData.setValue("Sending cancellation...");
+                
+                // 更新对应消息的状态为已取消
+                updateMessageStatusByConversationId(conversationId, Message.STATUS_CANCELED);
             } catch (JSONException e) {
                 e.printStackTrace();
+            }
+        }
+    }
+    
+    // 根据conversation_id更新消息状态
+    private void updateMessageStatusByConversationId(String conversationId, int status) {
+        List<Message> currentList = messageListLiveData.getValue();
+        if (currentList != null && conversationId != null && !conversationId.isEmpty()) {
+            boolean statusUpdated = false;
+            for (Message message : currentList) {
+                if (message.getType() == Message.TYPE_CONFIRM && message.getConfirmData() != null) {
+                    try {
+                        JSONObject confirmData = new JSONObject(message.getConfirmData());
+                        String msgConversationId = confirmData.optString("conversation_id", "");
+                        if (conversationId.equals(msgConversationId)) {
+                            // 只有当消息状态为待处理时才更新，防止覆盖已存在的状态
+                            if (message.getConfirmStatus() == Message.STATUS_PENDING) {
+                                message.setConfirmStatus(status);
+                                statusUpdated = true;
+                            }
+                            // 即使找到了对应消息，也不使用break，确保处理所有可能的重复情况
+                        }
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Error parsing confirmData for message", e);
+                    }
+                }
+            }
+            // 只有在状态实际更新时才触发LiveData更新
+            if (statusUpdated) {
+                List<Message> updatedList = new ArrayList<>(currentList);
+                messageListLiveData.setValue(updatedList);
             }
         }
     }

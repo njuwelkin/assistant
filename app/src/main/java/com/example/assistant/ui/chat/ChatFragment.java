@@ -81,7 +81,8 @@ public class ChatFragment extends Fragment {
         chatViewModel.getMessageListLiveData().observe(getViewLifecycleOwner(), new Observer<List<Message>>() {
             @Override
             public void onChanged(List<Message> messages) {
-                messageAdapter.setMessages(messages);
+                // 创建新的消息列表副本，确保状态更新能够正确触发UI刷新
+                messageAdapter.setMessages(new ArrayList<>(messages));
                 messageAdapter.notifyDataSetChanged();
                 // 滚动到底部
                 if (messages.size() > 0) {
