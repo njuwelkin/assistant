@@ -28,6 +28,10 @@ import java.util.List;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.security.cert.X509Certificate;
 
 public class CourseViewModel extends AndroidViewModel {
 
@@ -137,7 +141,8 @@ public class CourseViewModel extends AndroidViewModel {
     private void loadCourseDataFromServer() {
         new Thread(() -> {
             try {
-                OkHttpClient client = new OkHttpClient();
+                // 使用支持SSL证书的OkHttpClient
+                OkHttpClient client = createOkHttpClient();
                 String token = AuthManager.getAuthToken(getApplication());
                 
                 // 如果没有token或token为空，使用默认的模拟数据
@@ -148,7 +153,7 @@ public class CourseViewModel extends AndroidViewModel {
                 }
                 
                 Request request = new Request.Builder()
-                        .url("http://localhost:8080/api/school_timetable")
+                        .url("https://biubiu.org/api/school_timetable")
                         .header("Authorization", "Bearer " + token)
                         .build();
                 
@@ -496,5 +501,38 @@ public class CourseViewModel extends AndroidViewModel {
         }
         
         return activities;
+    }
+    
+    // 创建支持SSL证书的OkHttpClient
+    private OkHttpClient createOkHttpClient() {
+        try {
+            // 创建一个信任所有证书的TrustManager（仅用于测试环境）
+            X509TrustManager trustManager = new X509TrustManager() {
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+                
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+                
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+            };
+            
+            // 创建SSLContext并初始化
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, new TrustManager[] { trustManager }, new java.security.SecureRandom());
+            
+            // 创建OkHttpClient并配置SSL
+            return new OkHttpClient.Builder()
+                    .sslSocketFactory(sslContext.getSocketFactory(), trustManager)
+                    .hostnameVerifier((hostname, session) -> true) // 忽略主机名验证
+                    .build();
+        } catch (Exception e) {
+            Log.e("CourseViewModel", "创建OkHttpClient失败", e);
+            // 如果创建失败，返回默认客户端
+            return new OkHttpClient();
+        }
     }
 }
