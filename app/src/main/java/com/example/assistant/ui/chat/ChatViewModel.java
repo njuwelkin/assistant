@@ -38,7 +38,7 @@ public class ChatViewModel extends ViewModel {
     private static final String TAG = "ChatViewModel";
     
     // WebSocket服务器URL
-    private static final String WEB_SOCKET_URL_BASE = "wss://biubiu.org:443/mock/ws";
+    private static final String WEB_SOCKET_URL_BASE = "wss://biubiu.org:443/assistant/ws";
     // 上下文引用
     private Context applicationContext;
 
@@ -353,7 +353,7 @@ public class ChatViewModel extends ViewModel {
             }
             
             // 使用带确认数据的构造函数
-            currentList.add(new Message(content, Message.TYPE_CONFIRM, null));
+            currentList.add(new Message(content, Message.TYPE_CONFIRM, confirmDataJson));
             int newMessageIndex = currentList.size() - 1;
             
             // 使用新的列表对象触发LiveData更新
@@ -400,7 +400,9 @@ public class ChatViewModel extends ViewModel {
                 connectionStatusLiveData.setValue("Sending confirmation...");
                 
                 // 更新对应消息的状态为已确认
-                updateMessageStatusByConversationId(conversationId, Message.STATUS_CONFIRMED);
+                if (conversationId != null && !conversationId.isEmpty()) {
+                    updateMessageStatusByConversationId(conversationId, Message.STATUS_CONFIRMED);
+                }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -419,7 +421,9 @@ public class ChatViewModel extends ViewModel {
                 connectionStatusLiveData.setValue("Sending cancellation...");
                 
                 // 更新对应消息的状态为已取消
-                updateMessageStatusByConversationId(conversationId, Message.STATUS_CANCELED);
+                if (conversationId != null && !conversationId.isEmpty()) {
+                    updateMessageStatusByConversationId(conversationId, Message.STATUS_CANCELED);
+                }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
