@@ -116,7 +116,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     
     static class ConfirmMessageViewHolder extends RecyclerView.ViewHolder {
         TextView messageText;
-        TextView confirmContentText;
         Button confirmButton;
         Button cancelButton;
         TextView confirmTitle;
@@ -124,7 +123,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         public ConfirmMessageViewHolder(@NonNull View itemView) {
             super(itemView);
             messageText = itemView.findViewById(R.id.confirm_message_text);
-            confirmContentText = itemView.findViewById(R.id.confirm_content_text);
             confirmButton = itemView.findViewById(R.id.confirm_button);
             cancelButton = itemView.findViewById(R.id.cancel_button);
             confirmTitle = itemView.findViewById(R.id.confirm_title);
@@ -135,27 +133,11 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             
             // 尝试从confirmData中解析更多信息
             String conversationId = "";
-            String confirmDetails = "";
             
             try {
                 if (message.getConfirmData() != null) {
                     JSONObject confirmData = new JSONObject(message.getConfirmData());
                     conversationId = confirmData.getString("conversation_id");
-                    
-                    // 显示confirm_list内容
-                    if (confirmData.has("confirm_list")) {
-                        JSONArray confirmList = confirmData.getJSONArray("confirm_list");
-                        StringBuilder detailsBuilder = new StringBuilder();
-                        for (int i = 0; i < confirmList.length(); i++) {
-                            detailsBuilder.append(confirmList.getString(i));
-                            if (i < confirmList.length() - 1) {
-                                detailsBuilder.append("\n");
-                            }
-                        }
-                        confirmDetails = detailsBuilder.toString();
-                        confirmContentText.setText(confirmDetails);
-                        confirmContentText.setVisibility(View.VISIBLE);
-                    }
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
