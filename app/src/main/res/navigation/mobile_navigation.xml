@@ -40,4 +40,11 @@
         android:name="com.example.assistant.ui.notifications.TimePeriodSettingsFragment"
         android:label="使用时段限制设置"
         tools:layout="@layout/fragment_time_period_settings" />
+        
+    <!-- 家长密码设置页面 -->
+    <fragment
+        android:id="@+id/parent_password_fragment"
+        android:name="com.example.assistant.ui.notifications.ParentPasswordFragment"
+        android:label="家长密码设置"
+        tools:layout="@layout/fragment_parent_password" />
 </navigation>

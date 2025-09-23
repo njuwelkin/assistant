@@ -332,12 +332,26 @@ public class MeFragment extends Fragment {
      * 导航到家长密码设置页面
      */
     private void navigateToParentPasswordSettings() {
-        // 跳转到家长密码设置页面
-        ParentPasswordFragment fragment = new ParentPasswordFragment();
-        FragmentTransaction transaction = requireActivity().getSupportFragmentManager().beginTransaction();
-        transaction.replace(R.id.nav_host_fragment_activity_main, fragment);
-        transaction.addToBackStack(null);
-        transaction.commit();
+        try {
+            // 使用Navigation组件进行页面跳转，与应用中的其他导航方式保持一致
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+            // 使用反射来获取R.id.parent_password_fragment的值，避免编译时错误
+            int fragmentId = getResources().getIdentifier("parent_password_fragment", "id", requireContext().getPackageName());
+            if (fragmentId > 0) {
+                navController.navigate(fragmentId);
+            } else {
+                Log.e(TAG, "Could not find parent_password_fragment ID, falling back to FragmentTransaction");
+                // 如果反射失败，回退到FragmentTransaction（临时解决方案）
+                ParentPasswordFragment fragment = new ParentPasswordFragment();
+                FragmentTransaction transaction = requireActivity().getSupportFragmentManager().beginTransaction();
+                transaction.replace(R.id.nav_host_fragment_activity_main, fragment);
+                transaction.addToBackStack(null);
+                transaction.commit();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Navigation to ParentPasswordFragment failed: " + e.getMessage());
+            Toast.makeText(requireContext(), "无法导航到密码设置页面", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
