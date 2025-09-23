@@ -47,7 +47,7 @@ public class CourseFragment extends Fragment {
         binding = FragmentCourseBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
 
-        courseViewModel = new ViewModelProvider(this).get(CourseViewModel.class);
+        courseViewModel = new ViewModelProvider(this, ViewModelProvider.AndroidViewModelFactory.getInstance(getActivity().getApplication())).get(CourseViewModel.class);
 
         // 初始化日历相关变量
         calendar = Calendar.getInstance();
