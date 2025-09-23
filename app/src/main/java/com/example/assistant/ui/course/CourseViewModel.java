@@ -5,6 +5,8 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import android.app.Application;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.example.assistant.ui.course.model.Course;
@@ -21,9 +23,11 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -57,11 +61,23 @@ public class CourseViewModel extends AndroidViewModel {
         return _activities;
     }
 
-    // 缓存课程数据，课程内容不会变，只需在初始时加载一次
-    private List<Course> courseCache = null;
+    // 使用线程安全的集合解决脏读问题
+    private final List<Course> courseCache = new CopyOnWriteArrayList<>();
     private boolean isCacheInitialized = false;
+    private final Object cacheLock = new Object(); // 用于同步操作
+    
+    // 缓存当月作业数据
+    private List<Assignment> monthlyAssignmentCache = null;
+    private int cachedMonth = -1;
+    private int cachedYear = -1;
+    
+    // 缓存当月活动数据
+    private List<Activity> monthlyActivityCache = null;
+    private int cachedActivityMonth = -1;
+    private int cachedActivityYear = -1;
 
     private Date selectedDate;
+    private String lastLoadedDate;
 
     public Date getSelectedDate() {
         return selectedDate;
@@ -76,6 +92,7 @@ public class CourseViewModel extends AndroidViewModel {
         Log.d("CourseViewModel", "加载日期: " + date + " 的课程数据");
         
         try {
+            lastLoadedDate = date;
             // 解析日期字符串
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
             Date selectedDate = dateFormat.parse(date);
@@ -100,19 +117,25 @@ public class CourseViewModel extends AndroidViewModel {
             }
             
             // 如果缓存未初始化，从服务器加载课程数据
-            if (!isCacheInitialized) {
-                loadCourseDataFromServer();
-                // 等待数据加载完成 (实际项目中应该使用异步回调)
-                Thread.sleep(500);
-                isCacheInitialized = true; // 标记缓存已初始化，无论加载成功与否
+            synchronized (cacheLock) {
+                if (!isCacheInitialized) {
+                    loadCourseDataFromServer();
+                    // 立即使用模拟数据显示
+                    List<Course> mockCourses = generateMockCourses(date);
+                    _courses.postValue(mockCourses);
+                    loadAssignments(date, mockCourses);
+                    return; // 退出方法，等待异步加载完成后更新UI
+                }
             }
             
             // 从缓存中筛选出指定日期的课程
             List<Course> dayCourses = new ArrayList<>();
-            if (courseCache != null && convertedDayOfWeek > 0) {
-                for (Course course : courseCache) {
-                    if (course.getDayOfWeek() == convertedDayOfWeek) {
-                        dayCourses.add(course);
+            synchronized (cacheLock) {
+                if (!courseCache.isEmpty() && convertedDayOfWeek > 0) {
+                    for (Course course : courseCache) {
+                        if (course.getDayOfWeek() == convertedDayOfWeek) {
+                            dayCourses.add(course);
+                        }
                     }
                 }
             }
@@ -128,7 +151,7 @@ public class CourseViewModel extends AndroidViewModel {
             
             // 同时加载该日期的作业
             loadAssignments(date, dayCourses);
-        } catch (ParseException | InterruptedException e) {
+        } catch (ParseException e) {
             Log.e("CourseViewModel", "加载课程数据失败", e);
             // 加载失败时使用模拟数据
             List<Course> mockCourses = generateMockCourses(date);
@@ -148,7 +171,10 @@ public class CourseViewModel extends AndroidViewModel {
                 // 如果没有token或token为空，使用默认的模拟数据
                 if (token == null || token.isEmpty()) {
                     Log.w("CourseViewModel", "未获取到认证token，使用模拟数据");
-                    courseCache = null;
+                    synchronized (cacheLock) {
+                        courseCache.clear();
+                        isCacheInitialized = true;
+                    }
                     return;
                 }
                 
@@ -164,21 +190,41 @@ public class CourseViewModel extends AndroidViewModel {
                     Log.d("CourseViewModel", "从服务器获取课程数据成功: " + responseBody);
                     
                     // 解析JSON数据
-                    courseCache = parseCourseData(responseBody);
+                    List<Course> loadedCourses = parseCourseData(responseBody);
                     
-                    // 缓存课程数据到本地，以便应用重启后仍然可用
-                    cacheCoursesToLocalStorage(courseCache);
+                    // 缓存课程数据到本地存储
+                    cacheCoursesToLocalStorage(loadedCourses);
                     
-                    Log.d("CourseViewModel", "课程数据解析完成，共解析" + courseCache.size() + "条数据");
+                    Log.d("CourseViewModel", "课程数据解析完成，共解析" + loadedCourses.size() + "条数据");
+                    
+                    // 更新缓存和状态（线程安全）
+                    synchronized (cacheLock) {
+                        courseCache.clear();
+                        courseCache.addAll(loadedCourses);
+                        isCacheInitialized = true;
+                    }
+                    
+                    // 在主线程更新UI（异步回调）
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (lastLoadedDate != null) {
+                            loadCourses(lastLoadedDate); // 重新加载当前日期的课程以显示真实数据
+                        }
+                    });
                 } else {
                     Log.e("CourseViewModel", "从服务器获取课程数据失败: " + response.message());
-                    courseCache = null;
+                    synchronized (cacheLock) {
+                        courseCache.clear();
+                        isCacheInitialized = true;
+                    }
                     // 尝试从本地存储加载课程数据
                     loadCoursesFromLocalStorage();
                 }
             } catch (IOException | JSONException e) {
                 Log.e("CourseViewModel", "从服务器加载课程数据时发生异常", e);
-                courseCache = null;
+                synchronized (cacheLock) {
+                    courseCache.clear();
+                    isCacheInitialized = true;
+                }
                 // 尝试从本地存储加载课程数据
                 loadCoursesFromLocalStorage();
             }
@@ -236,26 +282,286 @@ public class CourseViewModel extends AndroidViewModel {
     // 加载指定日期的作业
     public void loadAssignments(String date, List<Course> courses) {
         Log.d("CourseViewModel", "加载日期: " + date + " 的作业数据");
-        // 这里应该是从API或数据库加载作业数据
-        // 为了演示，我们根据当日课程创建一些模拟作业数据
-        List<Assignment> assignments = generateMockAssignments(date, courses);
-        Log.d("CourseViewModel", "生成作业数据数量: " + assignments.size());
-        _assignments.setValue(assignments);
-        Log.d("CourseViewModel", "作业数据已设置到LiveData");
         
-        // 同时加载该日期的活动
-        loadActivities(date);
+        try {
+            // 解析日期，获取年月
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            Date selectedDate = dateFormat.parse(date);
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(selectedDate);
+            int year = calendar.get(Calendar.YEAR);
+            int month = calendar.get(Calendar.MONTH) + 1; // Calendar.MONTH从0开始
+            
+            // 检查是否需要从服务器加载新数据
+            if (monthlyAssignmentCache == null || cachedMonth != month || cachedYear != year) {
+                loadMonthlyAssignmentsFromServer(year, month, date, courses);
+                // 立即使用模拟数据显示
+                List<Assignment> mockAssignments = generateMockAssignments(date, courses);
+                _assignments.postValue(mockAssignments);
+                loadActivities(date);
+                return; // 退出方法，等待异步加载完成后更新UI
+            }
+            
+            // 从缓存中筛选出指定日期的作业
+            List<Assignment> dateAssignments = new ArrayList<>();
+            if (monthlyAssignmentCache != null && !monthlyAssignmentCache.isEmpty()) {
+                for (Assignment assignment : monthlyAssignmentCache) {
+                    if (date.equals(assignment.getDueDate())) {
+                        dateAssignments.add(assignment);
+                    }
+                }
+            }
+            
+            // 如果没有从服务器获取到数据，使用模拟数据
+            if (dateAssignments.isEmpty()) {
+                Log.d("CourseViewModel", "未找到真实作业数据，使用模拟数据");
+                dateAssignments = generateMockAssignments(date, courses);
+            }
+            
+            Log.d("CourseViewModel", "作业数据数量: " + dateAssignments.size());
+            _assignments.setValue(dateAssignments);
+            Log.d("CourseViewModel", "作业数据已设置到LiveData");
+            
+            // 同时加载该日期的活动
+            loadActivities(date);
+        } catch (ParseException e) {
+            Log.e("CourseViewModel", "加载作业数据失败", e);
+            // 加载失败时使用模拟数据
+            List<Assignment> mockAssignments = generateMockAssignments(date, courses);
+            _assignments.setValue(mockAssignments);
+            loadActivities(date);
+        }
     }
     
+    // 从服务器加载当月作业数据
+    private void loadMonthlyAssignmentsFromServer(int year, int month, final String date, final List<Course> courses) {
+        new Thread(() -> {
+            try {
+                OkHttpClient client = createOkHttpClient();
+                String token = AuthManager.getAuthToken(getApplication());
+                
+                // 如果没有token或token为空，使用模拟数据
+                if (token == null || token.isEmpty()) {
+                    Log.w("CourseViewModel", "未获取到认证token，无法从服务器加载作业数据");
+                    monthlyAssignmentCache = null;
+                    return;
+                }
+                
+                // 创建请求
+                Request request = new Request.Builder()
+                        .url("https://biubiu.org/api/assignments")
+                        .header("Authorization", "Bearer " + token)
+                        .build();
+                
+                Response response = client.newCall(request).execute();
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    String responseBody = response.body().string();
+                    Log.d("CourseViewModel", "从服务器获取作业数据成功: " + responseBody);
+                    
+                    // 解析JSON数据
+                    monthlyAssignmentCache = parseAssignmentsData(responseBody, year, month);
+                    
+                    // 更新缓存月份信息
+                    cachedMonth = month;
+                    cachedYear = year;
+                    
+                    Log.d("CourseViewModel", "作业数据解析完成，共解析" + monthlyAssignmentCache.size() + "条数据");
+                    
+                    // 在主线程更新UI（异步回调）
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        loadAssignments(date, courses); // 重新加载当前日期的作业以显示真实数据
+                    });
+                } else {
+                    Log.e("CourseViewModel", "从服务器获取作业数据失败: " + response.message());
+                    monthlyAssignmentCache = null;
+                }
+            } catch (IOException | JSONException e) {
+                Log.e("CourseViewModel", "从服务器加载作业数据时发生异常", e);
+                monthlyAssignmentCache = null;
+            }
+        }).start();
+    }
+    
+    // 解析作业数据JSON
+    private List<Assignment> parseAssignmentsData(String jsonData, int year, int month) throws JSONException {
+        List<Assignment> assignments = new ArrayList<>();
+        JSONArray jsonArray = new JSONArray(jsonData);
+        
+        String yearMonthStr = String.format("%d-%02d", year, month);
+        
+        for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject jsonObject = jsonArray.getJSONObject(i);
+            
+            String id = jsonObject.optString("id", "");
+            String courseName = jsonObject.optString("courseName", "未知课程");
+            String title = jsonObject.optString("title", "未命名作业");
+            String description = jsonObject.optString("description", "");
+            String dueDate = jsonObject.optString("dueDate", "");
+            boolean isCompleted = jsonObject.optBoolean("isCompleted", false);
+            
+            // 只保留当月的作业
+            if (dueDate.startsWith(yearMonthStr)) {
+                Assignment assignment = new Assignment(id, courseName, title, description, dueDate, isCompleted);
+                assignments.add(assignment);
+            }
+        }
+        
+        return assignments;
+    }
+
     // 加载指定日期的活动
     public void loadActivities(String date) {
         Log.d("CourseViewModel", "加载日期: " + date + " 的活动数据");
-        // 这里应该是从API或数据库加载活动数据
-        // 为了演示，我们创建一些模拟活动数据
-        List<Activity> activities = generateMockActivities(date);
-        Log.d("CourseViewModel", "生成活动数据数量: " + activities.size());
-        _activities.setValue(activities);
-        Log.d("CourseViewModel", "活动数据已设置到LiveData");
+        
+        try {
+            // 解析日期，获取年月
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            Date selectedDate = dateFormat.parse(date);
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(selectedDate);
+            int year = calendar.get(Calendar.YEAR);
+            int month = calendar.get(Calendar.MONTH) + 1; // Calendar.MONTH从0开始
+            
+            // 检查是否需要从服务器加载新数据
+            if (monthlyActivityCache == null || cachedActivityMonth != month || cachedActivityYear != year) {
+                loadMonthlyActivitiesFromServer(year, month, date);
+                // 立即使用模拟数据显示
+                List<Activity> mockActivities = generateMockActivities(date);
+                _activities.postValue(mockActivities);
+                return; // 退出方法，等待异步加载完成后更新UI
+            }
+            
+            // 从缓存中筛选出指定日期的活动
+            List<Activity> dateActivities = new ArrayList<>();
+            if (monthlyActivityCache != null && !monthlyActivityCache.isEmpty()) {
+                for (Activity activity : monthlyActivityCache) {
+                    if (date.equals(activity.getDate())) {
+                        dateActivities.add(activity);
+                    }
+                }
+            }
+            
+            // 如果没有从服务器获取到数据，使用模拟数据
+            if (dateActivities.isEmpty()) {
+                Log.d("CourseViewModel", "未找到真实活动数据，使用模拟数据");
+                dateActivities = generateMockActivities(date);
+            }
+            
+            Log.d("CourseViewModel", "活动数据数量: " + dateActivities.size());
+            _activities.setValue(dateActivities);
+        } catch (ParseException e) {
+            Log.e("CourseViewModel", "加载活动数据失败", e);
+            // 加载失败时使用模拟数据
+            List<Activity> mockActivities = generateMockActivities(date);
+            _activities.setValue(mockActivities);
+        }
+    }
+    
+    // 从服务器加载当月活动数据
+    private void loadMonthlyActivitiesFromServer(int year, int month, final String date) {
+        new Thread(() -> {
+            try {
+                OkHttpClient client = createOkHttpClient();
+                String token = AuthManager.getAuthToken(getApplication());
+                
+                // 如果没有token或token为空，使用模拟数据
+                if (token == null || token.isEmpty()) {
+                    Log.w("CourseViewModel", "未获取到认证token，无法从服务器加载活动数据");
+                    monthlyActivityCache = null;
+                    return;
+                }
+                
+                // 计算当月的开始和结束日期
+                Calendar calendar = Calendar.getInstance();
+                calendar.set(year, month - 1, 1); // 设置为当月第一天
+                Date startDate = calendar.getTime();
+                
+                // 设置为当月最后一天
+                calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH));
+                Date endDate = calendar.getTime();
+                
+                // 格式化日期为YYYY-MM-DD格式
+                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                String formattedStartDate = dateFormat.format(startDate);
+                String formattedEndDate = dateFormat.format(endDate);
+                
+                // 创建请求
+                String url = "https://biubiu.org/api/activities?start_date=" + formattedStartDate + "&end_date=" + formattedEndDate;
+                Request request = new Request.Builder()
+                        .url(url)
+                        .header("Authorization", "Bearer " + token)
+                        .build();
+                
+                Log.d("CourseViewModel", "发送活动数据请求: " + url);
+                Response response = client.newCall(request).execute();
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    String responseBody = response.body().string();
+                    Log.d("CourseViewModel", "从服务器获取活动数据成功: " + responseBody);
+                    
+                    // 解析JSON数据
+                    monthlyActivityCache = parseActivitiesData(responseBody);
+                    
+                    // 更新缓存月份信息
+                    cachedActivityMonth = month;
+                    cachedActivityYear = year;
+                    
+                    Log.d("CourseViewModel", "活动数据解析完成，共解析" + monthlyActivityCache.size() + "条数据");
+                    
+                    // 在主线程更新UI（异步回调）
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        loadActivities(date); // 重新加载当前日期的活动以显示真实数据
+                    });
+                } else {
+                    Log.e("CourseViewModel", "从服务器获取活动数据失败: " + response.message());
+                    monthlyActivityCache = null;
+                }
+            } catch (IOException | JSONException e) {
+                Log.e("CourseViewModel", "从服务器加载活动数据时发生异常", e);
+                monthlyActivityCache = null;
+            }
+        }).start();
+    }
+    
+
+    // 解析活动数据JSON
+    private List<Activity> parseActivitiesData(String jsonData) throws JSONException {
+        List<Activity> activities = new ArrayList<>();
+        JSONArray jsonArray = new JSONArray(jsonData);
+        
+        for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject jsonObject = jsonArray.getJSONObject(i);
+            
+            String id = jsonObject.optString("id", "");
+            String title = jsonObject.optString("title", "未命名活动");
+            String description = jsonObject.optString("description", "");
+            String date = jsonObject.optString("date", "");
+            String time = jsonObject.optString("time", "");
+            String location = jsonObject.optString("location", "");
+            boolean isAttended = jsonObject.optBoolean("isAttended", false);
+            
+            // 如果time为空，尝试从startTime和endTime构建
+            if (time.isEmpty()) {
+                String startTime = jsonObject.optString("startTime", "");
+                String endTime = jsonObject.optString("endTime", "");
+                if (!startTime.isEmpty() && !endTime.isEmpty()) {
+                    time = startTime + "-" + endTime;
+                }
+            }
+            
+            // 确保日期不为空
+            if (date.isEmpty()) {
+                // 如果没有date字段，使用当前日期（实际项目中可能需要更合理的处理）
+                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                date = dateFormat.format(new Date());
+            }
+            
+            Activity activity = new Activity(id, title, description, date, time, location, isAttended);
+            activities.add(activity);
+        }
+        
+        return activities;
     }
 
     // 生成模拟课程数据（备用，当从服务器加载失败时使用）
