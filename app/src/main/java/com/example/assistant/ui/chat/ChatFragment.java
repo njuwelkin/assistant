@@ -54,7 +54,24 @@ public class ChatFragment extends Fragment {
         chatViewModel = new ViewModelProvider(this).get(ChatViewModel.class);
 
         // 初始化消息适配器
-        messageAdapter = new MessageAdapter(new ArrayList<>());
+        messageAdapter = new MessageAdapter(getContext(), new ArrayList<>());
+        
+        // 设置确认消息监听器
+        messageAdapter.setConfirmMessageListener(new MessageAdapter.ConfirmMessageListener() {
+            @Override
+            public void onConfirm(String conversationId) {
+                if (chatViewModel != null) {
+                    chatViewModel.sendConfirmResponse(conversationId);
+                }
+            }
+            
+            @Override
+            public void onCancel(String conversationId) {
+                if (chatViewModel != null) {
+                    chatViewModel.sendCancelResponse(conversationId);
+                }
+            }
+        });
 
         // 设置RecyclerView
         messagesRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));

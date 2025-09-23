@@ -38,7 +38,7 @@ public class ChatViewModel extends ViewModel {
     private static final String TAG = "ChatViewModel";
     
     // WebSocket服务器URL
-    private static final String WEB_SOCKET_URL_BASE = "wss://biubiu.org:443/ws";
+    private static final String WEB_SOCKET_URL_BASE = "wss://biubiu.org:443/mock/ws";
     // 上下文引用
     private Context applicationContext;
 
@@ -231,8 +231,8 @@ public class ChatViewModel extends ViewModel {
                             JSONObject confirmData = new JSONObject(confirmContent);
                             String conversationId = confirmData.getString("conversation_id");
                             
-                            // 添加确认消息
-                            addMessage("需要执行SQL操作，请确认。会话ID: " + conversationId, Message.TYPE_AI_THINK);
+                            // 添加确认消息，使用新的TYPE_CONFIRM类型并保存原始确认数据
+                            addConfirmMessage(confirmContent);
                         } else {
                             // 处理其他类型的消息或原始文本消息
                             addMessage(text, Message.TYPE_AI);
@@ -338,6 +338,36 @@ public class ChatViewModel extends ViewModel {
         return newMessageIndex;
     }
     
+    // 添加确认消息并返回索引
+    private int addConfirmMessage(String confirmDataJson) {
+        try {
+            JSONObject confirmData = new JSONObject(confirmDataJson);
+            //String conversationId = confirmData.getString("conversation_id");
+            
+            // 创建确认消息内容
+            String content = "遇到困难的题目应该首先自己尝试完成，如果实在不会，我可以帮你解答，但会发送消息通知爸爸妈妈，你确定吗？";
+            
+            List<Message> currentList = messageListLiveData.getValue();
+            if (currentList == null) {
+                currentList = new ArrayList<>();
+            }
+            
+            // 使用带确认数据的构造函数
+            currentList.add(new Message(content, Message.TYPE_CONFIRM, null));
+            int newMessageIndex = currentList.size() - 1;
+            
+            // 使用新的列表对象触发LiveData更新
+            List<Message> updatedList = new ArrayList<>(currentList);
+            messageListLiveData.setValue(updatedList);
+            
+            return newMessageIndex;
+        } catch (JSONException e) {
+            e.printStackTrace();
+            // 如果JSON解析失败，创建一个普通的确认消息
+            return addMessage("遇到困难的题目应该首先自己尝试完成，如果实在不会，我可以帮你解答，但会发送消息通知爸爸妈妈，你确定吗？", Message.TYPE_CONFIRM);
+        }
+    }
+    
     // 更新现有消息的内容
     private void updateMessage(int messageId, String content) {
         List<Message> currentList = messageListLiveData.getValue();
@@ -355,6 +385,38 @@ public class ChatViewModel extends ViewModel {
             // 使用新的列表对象触发LiveData更新
             List<Message> updatedList = new ArrayList<>(currentList);
             messageListLiveData.setValue(updatedList);
+        }
+    }
+    
+    // 发送确认响应
+    public void sendConfirmResponse(String conversationId) {
+        if (webSocket != null) {
+            try {
+                JSONObject messageObj = new JSONObject();
+                messageObj.put("type", "confirm");
+                messageObj.put("conversation_id", conversationId);
+                messageObj.put("content", "confirmed");
+                webSocket.send(messageObj.toString());
+                connectionStatusLiveData.setValue("Sending confirmation...");
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    // 发送取消响应
+    public void sendCancelResponse(String conversationId) {
+        if (webSocket != null) {
+            try {
+                JSONObject messageObj = new JSONObject();
+                messageObj.put("type", "confirm");
+                messageObj.put("conversation_id", conversationId);
+                messageObj.put("content", "canceled");
+                webSocket.send(messageObj.toString());
+                connectionStatusLiveData.setValue("Sending cancellation...");
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         }
     }
     
