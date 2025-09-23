@@ -15,6 +15,11 @@ import java.security.NoSuchAlgorithmException;
 
 import com.example.assistant.util.DatabaseHelper;
 import com.example.assistant.util.AuthManager;
+import com.example.assistant.model.TimePeriod;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MeViewModel extends ViewModel {
 
@@ -31,6 +36,7 @@ public class MeViewModel extends ViewModel {
     private final MutableLiveData<Integer> dailyTimeLimit = new MutableLiveData<>(); // 单位：分钟
     private final MutableLiveData<String> timePeriodStart = new MutableLiveData<>();
     private final MutableLiveData<String> timePeriodEnd = new MutableLiveData<>();
+    private final MutableLiveData<List<TimePeriod>> timePeriods = new MutableLiveData<>();
     
     // 应用缓存相关数据
     private final MutableLiveData<String> cacheSize = new MutableLiveData<>();
@@ -47,8 +53,9 @@ public class MeViewModel extends ViewModel {
         userId.setValue("20230001");
         parentPasswordSet.setValue(false);
         dailyTimeLimit.setValue(120); // 默认每日使用2小时
-        timePeriodStart.setValue("08:00"); // 默认开始时间
-        timePeriodEnd.setValue("22:00"); // 默认结束时间
+        timePeriodStart.setValue(""); // 不设置默认开始时间
+        timePeriodEnd.setValue(""); // 不设置默认结束时间
+        timePeriods.setValue(new ArrayList<>()); // 初始化时段列表为空
         cacheSize.setValue("5.2MB"); // 模拟缓存大小
     }
     
@@ -69,6 +76,17 @@ public class MeViewModel extends ViewModel {
                 } catch (NumberFormatException e) {
                     Log.e("MeViewModel", "Failed to parse daily time limit: " + savedTimeLimit, e);
                 }
+            }
+            
+            // 从数据库加载时段设置
+            List<TimePeriod> savedTimePeriods = databaseHelper.getTimePeriods();
+            if (savedTimePeriods != null && !savedTimePeriods.isEmpty()) {
+                timePeriods.setValue(savedTimePeriods);
+            } else {
+                // 如果没有保存的时段，添加一个默认的晚间休息时段
+                List<TimePeriod> defaultPeriods = new ArrayList<>();
+                defaultPeriods.add(new TimePeriod("晚间休息", "22:00", "06:00", TimePeriod.RepeatType.DAILY, new ArrayList<>(), true));
+                timePeriods.setValue(defaultPeriods);
             }
         }
     }
@@ -282,6 +300,21 @@ public class MeViewModel extends ViewModel {
     // 设置使用时段结束时间
     public void setTimePeriodEnd(String endTime) {
         timePeriodEnd.setValue(endTime);
+    }
+    
+    // 获取时段列表的LiveData
+    public LiveData<List<TimePeriod>> getTimePeriods() {
+        return timePeriods;
+    }
+    
+    // 保存时段列表
+    public void saveTimePeriods(List<TimePeriod> periods) {
+        timePeriods.setValue(periods);
+        
+        // 如果数据库已初始化，保存到数据库
+        if (databaseHelper != null) {
+            databaseHelper.saveTimePeriods(periods);
+        }
     }
     
     // 获取缓存大小的LiveData

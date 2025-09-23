@@ -176,8 +176,11 @@ public class MeFragment extends Fragment {
     private void updateTimePeriodDisplay() {
         String startTime = meViewModel.getTimePeriodStart().getValue();
         String endTime = meViewModel.getTimePeriodEnd().getValue();
-        if (startTime != null && endTime != null) {
+        if (startTime != null && endTime != null && !startTime.isEmpty() && !endTime.isEmpty()) {
             binding.timePeriodValue.setText(startTime + " - " + endTime);
+        } else {
+            // 当没有设置时段时显示提示文本
+            binding.timePeriodValue.setText("");
         }
     }
 
@@ -394,8 +397,20 @@ public class MeFragment extends Fragment {
      * 导航至使用时段限制设置
      */
     private void navigateToTimePeriodSettings() {
-        // 这里可以实现导航到使用时段限制设置页面的逻辑
-        Toast.makeText(requireContext(), "使用时段限制设置", Toast.LENGTH_SHORT).show();
+        // 检查家长密码是否已设置
+        Boolean isPasswordSet = meViewModel.isParentPasswordSet().getValue();
+        
+        if (isPasswordSet != null && isPasswordSet) {
+            // 如果家长密码已设置，先导航到密码验证页面，并设置目标页面为时段限制设置
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+            Bundle bundle = new Bundle();
+            bundle.putString("next_destination", "time_period_settings");
+            navController.navigate(R.id.parent_password_verify_fragment, bundle);
+        } else {
+            // 如果家长密码未设置，直接导航到时段限制设置页面
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+            navController.navigate(R.id.time_period_settings_fragment);
+        }
     }
 
     /**

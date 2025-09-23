@@ -8,10 +8,17 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.example.assistant.model.TimePeriod;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "DatabaseHelper";
     private static final String DATABASE_NAME = "auth_db";
-    private static final int DATABASE_VERSION = 3; // 增加版本号以支持每日使用时长设置表
+    private static final int DATABASE_VERSION = 4; // 增加版本号以支持时段设置表
 
     // 认证表名
     private static final String TABLE_AUTH = "auth";
@@ -36,6 +43,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // 设置键名常量
     public static final String KEY_DAILY_TIME_LIMIT = "daily_time_limit"; // 每日使用时长限制(分钟)
 
+    // 时段表名
+    private static final String TABLE_TIME_PERIODS = "time_periods";
+    // 时段表字段
+    private static final String COLUMN_PERIOD_ID = "id";
+    private static final String COLUMN_PERIOD_NAME = "name";
+    private static final String COLUMN_START_TIME = "start_time";
+    private static final String COLUMN_END_TIME = "end_time";
+    private static final String COLUMN_REPEAT_TYPE = "repeat_type";
+    private static final String COLUMN_SELECTED_DAYS = "selected_days";
+    private static final String COLUMN_ENABLED = "enabled";
+
     // 创建认证表的SQL语句
     private static final String CREATE_AUTH_TABLE = "CREATE TABLE " + TABLE_AUTH + "(" +
             COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -58,6 +76,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             COLUMN_UPDATED_TIME + " INTEGER NOT NULL" +
             ");";
 
+    // 创建时段表的SQL语句
+    private static final String CREATE_TIME_PERIODS_TABLE = "CREATE TABLE " + TABLE_TIME_PERIODS + "(" +
+            COLUMN_PERIOD_ID + " TEXT PRIMARY KEY, " +
+            COLUMN_PERIOD_NAME + " TEXT, " +
+            COLUMN_START_TIME + " TEXT, " +
+            COLUMN_END_TIME + " TEXT, " +
+            COLUMN_REPEAT_TYPE + " TEXT, " +
+            COLUMN_SELECTED_DAYS + " TEXT, " +
+            COLUMN_ENABLED + " INTEGER" +
+            ");";
+
     public DatabaseHelper(@Nullable Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
@@ -65,11 +94,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         // 创建认证表
-        db.execSQL(CREATE_AUTH_TABLE);
-        // 创建家长密码表
-        db.execSQL(CREATE_PARENT_PASSWORD_TABLE);
-        // 创建用户设置表
-        db.execSQL(CREATE_USER_SETTINGS_TABLE);
+    db.execSQL(CREATE_AUTH_TABLE);
+    // 创建家长密码表
+    db.execSQL(CREATE_PARENT_PASSWORD_TABLE);
+    // 创建用户设置表
+    db.execSQL(CREATE_USER_SETTINGS_TABLE);
+    // 创建时段表
+    db.execSQL(CREATE_TIME_PERIODS_TABLE);
     }
 
     @Override
@@ -81,6 +112,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // 如果是从版本2升级到版本3，添加用户设置表
         if (oldVersion < 3) {
             db.execSQL(CREATE_USER_SETTINGS_TABLE);
+        }
+        // 如果是从版本3升级到版本4，添加时段表
+        if (oldVersion < 4) {
+            db.execSQL(CREATE_TIME_PERIODS_TABLE);
         }
     }
 
@@ -264,5 +299,107 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.close();
         }
         return value;
+    }
+    
+    // 获取所有时段
+    public List<TimePeriod> getTimePeriods() {
+        List<TimePeriod> timePeriods = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        
+        try {
+            Cursor cursor = db.query(TABLE_TIME_PERIODS, null, null, null, null, null, null);
+            
+            if (cursor != null && cursor.moveToFirst()) {
+                do {
+                    String id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PERIOD_ID));
+                    String name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PERIOD_NAME));
+                    String startTime = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_START_TIME));
+                    String endTime = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_END_TIME));
+                    String repeatTypeStr = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_REPEAT_TYPE));
+                    String selectedDaysStr = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_SELECTED_DAYS));
+                    boolean enabled = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENABLED)) == 1;
+                    
+                    TimePeriod.RepeatType repeatType = TimePeriod.RepeatType.valueOf(repeatTypeStr);
+                    List<Integer> selectedDays = new ArrayList<>();
+                    
+                    if (selectedDaysStr != null && !selectedDaysStr.isEmpty()) {
+                        String[] daysArray = selectedDaysStr.split(",");
+                        for (String day : daysArray) {
+                            try {
+                                selectedDays.add(Integer.parseInt(day.trim()));
+                            } catch (NumberFormatException e) {
+                                Log.e(TAG, "Invalid day format: " + day, e);
+                            }
+                        }
+                    }
+                    
+                    TimePeriod period = new TimePeriod(name, startTime, endTime, repeatType, selectedDays, enabled);
+                    period.setId(id);
+                    timePeriods.add(period);
+                } while (cursor.moveToNext());
+                
+                cursor.close();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get time periods", e);
+        } finally {
+            db.close();
+        }
+        
+        return timePeriods;
+    }
+    
+    // 保存所有时段
+    public boolean saveTimePeriods(List<TimePeriod> timePeriods) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        
+        try {
+            db.beginTransaction();
+            
+            // 先删除所有现有时段
+            db.delete(TABLE_TIME_PERIODS, null, null);
+            
+            // 插入新的时段
+            for (TimePeriod period : timePeriods) {
+                StringBuilder selectedDaysBuilder = new StringBuilder();
+                List<Integer> selectedDays = period.getSelectedDays();
+                
+                if (selectedDays != null && !selectedDays.isEmpty()) {
+                    for (int i = 0; i < selectedDays.size(); i++) {
+                        if (i > 0) {
+                            selectedDaysBuilder.append(",");
+                        }
+                        selectedDaysBuilder.append(selectedDays.get(i));
+                    }
+                }
+                
+                db.execSQL("INSERT INTO " + TABLE_TIME_PERIODS + "(" +
+                        COLUMN_PERIOD_ID + ", " +
+                        COLUMN_PERIOD_NAME + ", " +
+                        COLUMN_START_TIME + ", " +
+                        COLUMN_END_TIME + ", " +
+                        COLUMN_REPEAT_TYPE + ", " +
+                        COLUMN_SELECTED_DAYS + ", " +
+                        COLUMN_ENABLED + ") VALUES(?, ?, ?, ?, ?, ?, ?)",
+                        new Object[]{
+                                period.getId(),
+                                period.getName(),
+                                period.getStartTime(),
+                                period.getEndTime(),
+                                period.getRepeatType().name(),
+                                selectedDaysBuilder.toString(),
+                                period.isEnabled() ? 1 : 0
+                        });
+            }
+            
+            db.setTransactionSuccessful();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save time periods", e);
+            return false;
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
     }
 }

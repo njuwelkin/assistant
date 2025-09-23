@@ -64,9 +64,26 @@ public class ParentPasswordVerifyFragment extends Fragment {
         
         if (isPasswordCorrect) {
             // 密码验证成功，导航到目标页面
-            int destination = getArguments() != null ? getArguments().getInt(ARG_DESTINATION, R.id.daily_time_limit_fragment) : R.id.daily_time_limit_fragment;
             NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
-            navController.navigate(destination);
+            
+            // 检查参数类型并设置相应的目标页面
+            if (getArguments() != null) {
+                // 方式1：检查是否有字符串类型的next_destination参数
+                String nextDestination = getArguments().getString("next_destination");
+                if (nextDestination != null && !nextDestination.isEmpty()) {
+                    if (nextDestination.equals("time_period_settings")) {
+                        navController.navigate(R.id.time_period_settings_fragment);
+                        return;
+                    }
+                }
+                
+                // 方式2：使用原有的整型参数
+                int destination = getArguments().getInt(ARG_DESTINATION, R.id.daily_time_limit_fragment);
+                navController.navigate(destination);
+            } else {
+                // 默认导航到每日使用时长页面
+                navController.navigate(R.id.daily_time_limit_fragment);
+            }
         } else {
             // 密码验证失败
             Toast.makeText(requireContext(), "密码错误，请重新输入", Toast.LENGTH_SHORT).show();

@@ -34,4 +34,10 @@
         android:name="com.example.assistant.ui.notifications.DailyTimeLimitFragment"
         android:label="每日使用时长设置"
         tools:layout="@layout/fragment_daily_time_limit" />
+        
+    <fragment
+        android:id="@+id/time_period_settings_fragment"
+        android:name="com.example.assistant.ui.notifications.TimePeriodSettingsFragment"
+        android:label="使用时段限制设置"
+        tools:layout="@layout/fragment_time_period_settings" />
 </navigation>

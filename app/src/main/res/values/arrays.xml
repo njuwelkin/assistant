@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="repeat_options">
+        <item>一次性</item>
+        <item>每天</item>
+        <item>每周</item>
+        <item>自定义</item>
+    </string-array>
+</resources>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- 时段名称输入 -->
+    <EditText
+        android:id="@+id/period_name_edit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="请输入时段名称（如：晚间休息）"
+        android:inputType="text"
+        android:maxLines="1"
+        android:textSize="16sp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- 开始时间选择 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="开始时间："
+            android:textSize="16sp"
+            android:layout_marginRight="16dp" />
+        
+        <TextView
+            android:id="@+id/start_time_text"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:background="@drawable/rounded_background_light"
+            android:textSize="16sp"
+            android:textColor="@color/primary" />
+    </LinearLayout>
+
+    <!-- 结束时间选择 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="结束时间："
+            android:textSize="16sp"
+            android:layout_marginRight="16dp" />
+        
+        <TextView
+            android:id="@+id/end_time_text"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:background="@drawable/rounded_background_light"
+            android:textSize="16sp"
+            android:textColor="@color/primary" />
+    </LinearLayout>
+
+    <!-- 重复选项 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="重复："
+            android:textSize="16sp"
+            android:layout_marginRight="16dp" />
+        
+        <Spinner
+            android:id="@+id/repeat_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+    </LinearLayout>
+
+    <!-- 启用复选框 -->
+    <CheckBox
+        android:id="@+id/enable_checkbox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="启用此时段限制"
+        android:textSize="16sp"
+        android:checked="true" />
+
+</LinearLayout>
