@@ -23,6 +23,8 @@ import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 
 import com.example.assistant.LoginActivity;
 import com.example.assistant.R;
@@ -48,6 +50,9 @@ public class MeFragment extends Fragment {
 
         // 初始化ViewModel
         meViewModel = new ViewModelProvider(this).get(MeViewModel.class);
+
+        // 初始化数据库，加载设置
+        meViewModel.initDatabase(requireContext());
 
         // 观察ViewModel中的数据变化并更新UI
         observeViewModelData();
@@ -371,8 +376,18 @@ public class MeFragment extends Fragment {
      * 导航至每日使用时长设置
      */
     private void navigateToDailyTimeLimitSettings() {
-        // 这里可以实现导航到每日使用时长设置页面的逻辑
-        Toast.makeText(requireContext(), "每日使用时长设置", Toast.LENGTH_SHORT).show();
+        // 检查家长密码是否已设置
+        Boolean isPasswordSet = meViewModel.isParentPasswordSet().getValue();
+        
+        if (isPasswordSet != null && isPasswordSet) {
+            // 如果家长密码已设置，先导航到密码验证页面
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+            navController.navigate(R.id.parent_password_verify_fragment);
+        } else {
+            // 如果家长密码未设置，直接导航到时长设置页面
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+            navController.navigate(R.id.daily_time_limit_fragment);
+        }
     }
 
     /**

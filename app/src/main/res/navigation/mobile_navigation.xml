@@ -22,4 +22,16 @@
         android:name="com.example.assistant.ui.notifications.MeFragment"
         android:label="@string/title_me"
         tools:layout="@layout/fragment_me" />
+
+    <fragment
+        android:id="@+id/parent_password_verify_fragment"
+        android:name="com.example.assistant.ui.notifications.ParentPasswordVerifyFragment"
+        android:label="验证家长密码"
+        tools:layout="@layout/fragment_parent_password_verify" />
+
+    <fragment
+        android:id="@+id/daily_time_limit_fragment"
+        android:name="com.example.assistant.ui.notifications.DailyTimeLimitFragment"
+        android:label="每日使用时长设置"
+        tools:layout="@layout/fragment_daily_time_limit" />
 </navigation>

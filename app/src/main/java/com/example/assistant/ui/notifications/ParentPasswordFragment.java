@@ -41,7 +41,9 @@ public class ParentPasswordFragment extends Fragment {
 
         // 设置返回按钮点击事件
         binding.backButton.setOnClickListener(v -> {
-            requireActivity().getSupportFragmentManager().popBackStack();
+            // 使用NavController明确导航到MeFragment，与完成和取消按钮行为一致
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+            navController.navigate(R.id.navigation_me);
         });
 
         // 设置确认按钮点击事件
@@ -51,7 +53,9 @@ public class ParentPasswordFragment extends Fragment {
 
         // 设置取消按钮点击事件
         binding.cancelButton.setOnClickListener(v -> {
-            requireActivity().getSupportFragmentManager().popBackStack();
+            // 使用NavController明确导航到MeFragment，与完成按钮行为一致
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+            navController.navigate(R.id.navigation_me);
         });
 
         return root;

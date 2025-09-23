@@ -11,7 +11,7 @@ import androidx.annotation.Nullable;
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "DatabaseHelper";
     private static final String DATABASE_NAME = "auth_db";
-    private static final int DATABASE_VERSION = 2; // 增加版本号以支持家长密码表
+    private static final int DATABASE_VERSION = 3; // 增加版本号以支持每日使用时长设置表
 
     // 认证表名
     private static final String TABLE_AUTH = "auth";
@@ -25,6 +25,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // 家长密码表字段
     private static final String COLUMN_PASSWORD_HASH = "password_hash";
     private static final String COLUMN_CREATED_TIME = "created_time";
+    
+    // 用户设置表名
+    private static final String TABLE_USER_SETTINGS = "user_settings";
+    // 用户设置表字段
+    private static final String COLUMN_SETTING_KEY = "setting_key";
+    private static final String COLUMN_SETTING_VALUE = "setting_value";
+    private static final String COLUMN_UPDATED_TIME = "updated_time";
+    
+    // 设置键名常量
+    public static final String KEY_DAILY_TIME_LIMIT = "daily_time_limit"; // 每日使用时长限制(分钟)
 
     // 创建认证表的SQL语句
     private static final String CREATE_AUTH_TABLE = "CREATE TABLE " + TABLE_AUTH + "(" +
@@ -39,6 +49,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             COLUMN_PASSWORD_HASH + " TEXT NOT NULL, " +
             COLUMN_CREATED_TIME + " INTEGER NOT NULL" +
             ");";
+    
+    // 创建用户设置表的SQL语句
+    private static final String CREATE_USER_SETTINGS_TABLE = "CREATE TABLE " + TABLE_USER_SETTINGS + "(" +
+            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            COLUMN_SETTING_KEY + " TEXT NOT NULL UNIQUE, " +
+            COLUMN_SETTING_VALUE + " TEXT NOT NULL, " +
+            COLUMN_UPDATED_TIME + " INTEGER NOT NULL" +
+            ");";
 
     public DatabaseHelper(@Nullable Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -50,6 +68,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_AUTH_TABLE);
         // 创建家长密码表
         db.execSQL(CREATE_PARENT_PASSWORD_TABLE);
+        // 创建用户设置表
+        db.execSQL(CREATE_USER_SETTINGS_TABLE);
     }
 
     @Override
@@ -57,6 +77,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // 如果是从版本1升级到版本2，添加家长密码表
         if (oldVersion < 2) {
             db.execSQL(CREATE_PARENT_PASSWORD_TABLE);
+        }
+        // 如果是从版本2升级到版本3，添加用户设置表
+        if (oldVersion < 3) {
+            db.execSQL(CREATE_USER_SETTINGS_TABLE);
         }
     }
 
@@ -176,5 +200,69 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         } finally {
             db.close();
         }
+    }
+    
+    // 保存用户设置
+    public boolean saveUserSetting(String key, String value) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        try {
+            // 先检查是否已存在该设置
+            Cursor cursor = db.query(TABLE_USER_SETTINGS, 
+                    new String[]{COLUMN_ID}, 
+                    COLUMN_SETTING_KEY + " = ?", 
+                    new String[]{key}, 
+                    null, null, null);
+            
+            long currentTime = System.currentTimeMillis();
+            
+            if (cursor != null && cursor.moveToFirst()) {
+                // 如果已存在，更新值
+                db.execSQL("UPDATE " + TABLE_USER_SETTINGS + " SET " + 
+                        COLUMN_SETTING_VALUE + " = ?, " + 
+                        COLUMN_UPDATED_TIME + " = ? WHERE " + 
+                        COLUMN_SETTING_KEY + " = ?",
+                        new Object[]{value, currentTime, key});
+                cursor.close();
+            } else {
+                // 如果不存在，插入新值
+                db.execSQL("INSERT INTO " + TABLE_USER_SETTINGS + "(" + 
+                        COLUMN_SETTING_KEY + ", " + 
+                        COLUMN_SETTING_VALUE + ", " + 
+                        COLUMN_UPDATED_TIME + ") VALUES(?, ?, ?)",
+                        new Object[]{key, value, currentTime});
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save user setting: " + key, e);
+            return false;
+        } finally {
+            db.close();
+        }
+    }
+    
+    // 获取用户设置
+    public String getUserSetting(String key) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String value = null;
+        try {
+            Cursor cursor = db.query(TABLE_USER_SETTINGS, 
+                    new String[]{COLUMN_SETTING_VALUE}, 
+                    COLUMN_SETTING_KEY + " = ?", 
+                    new String[]{key}, 
+                    null, null, null);
+            
+            if (cursor != null && cursor.moveToFirst()) {
+                value = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_SETTING_VALUE));
+                cursor.close();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get user setting: " + key, e);
+        } finally {
+            db.close();
+        }
+        return value;
     }
 }

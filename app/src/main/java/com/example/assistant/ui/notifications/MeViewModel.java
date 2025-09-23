@@ -59,6 +59,17 @@ public class MeViewModel extends ViewModel {
             // 检查家长密码是否已设置
             boolean isSet = databaseHelper.isParentPasswordSet();
             parentPasswordSet.setValue(isSet);
+            
+            // 从数据库加载每日使用时长设置
+            String savedTimeLimit = databaseHelper.getUserSetting(DatabaseHelper.KEY_DAILY_TIME_LIMIT);
+            if (savedTimeLimit != null && !savedTimeLimit.isEmpty()) {
+                try {
+                    int minutes = Integer.parseInt(savedTimeLimit);
+                    dailyTimeLimit.setValue(minutes);
+                } catch (NumberFormatException e) {
+                    Log.e("MeViewModel", "Failed to parse daily time limit: " + savedTimeLimit, e);
+                }
+            }
         }
     }
 
@@ -235,6 +246,20 @@ public class MeViewModel extends ViewModel {
     }
     
     // 设置每日使用时长限制
+    public void setDailyTimeLimit(Context context, int minutes) {
+        dailyTimeLimit.setValue(minutes);
+        
+        // 如果数据库已初始化，保存到数据库
+        if (databaseHelper == null && context != null) {
+            initDatabase(context);
+        }
+        
+        if (databaseHelper != null) {
+            databaseHelper.saveUserSetting(DatabaseHelper.KEY_DAILY_TIME_LIMIT, String.valueOf(minutes));
+        }
+    }
+    
+    // 设置每日使用时长限制（不保存到数据库）
     public void setDailyTimeLimit(int minutes) {
         dailyTimeLimit.setValue(minutes);
     }
