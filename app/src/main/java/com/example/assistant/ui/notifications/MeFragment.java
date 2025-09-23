@@ -281,25 +281,11 @@ public class MeFragment extends Fragment {
                     if (newAvatarPath != null) {
                         meViewModel.updateAvatarUri(newAvatarPath);
                         
-                        // 直接更新头像显示，确保UI立即刷新
-                        try {
-                            File avatarFile = new File(newAvatarPath);
-                            if (avatarFile.exists()) {
-                                Uri avatarUri = FileProvider.getUriForFile(
-                                        requireContext(),
-                                        requireContext().getPackageName() + ".fileprovider",
-                                        avatarFile);
-                                binding.avatarImage.setImageURI(avatarUri);
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed to directly update avatar image", e);
-                        }
+                        // 强制刷新UI以立即显示新头像
+                        refreshAvatarImage(newAvatarPath);
                         
                         Toast.makeText(requireContext(), "头像已更新", Toast.LENGTH_SHORT).show();
                         Log.d(TAG, "Avatar updated from camera: " + newAvatarPath);
-                        
-                        // 强制刷新整个页面
-                        refreshFragment();
                     }
                     }
                 } catch (Exception e) {
@@ -323,21 +309,10 @@ public class MeFragment extends Fragment {
                             if (newAvatarPath != null) {
                                 meViewModel.updateAvatarUri(newAvatarPath);
                                 
-                                // 直接更新头像显示，确保UI立即刷新
-                                try {
-                                    File avatarFile = new File(newAvatarPath);
-                                    if (avatarFile.exists()) {
-                                        Uri avatarUri = FileProvider.getUriForFile(
-                                                requireContext(),
-                                                requireContext().getPackageName() + ".fileprovider",
-                                                avatarFile);
-                                        binding.avatarImage.setImageURI(avatarUri);
-                                    }
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Failed to directly update avatar image", e);
-                                }
-                                
-                                Toast.makeText(requireContext(), "头像已更新", Toast.LENGTH_SHORT).show();
+                                // 强制刷新UI以立即显示新头像
+                        refreshAvatarImage(newAvatarPath);
+                        
+                        Toast.makeText(requireContext(), "头像已更新", Toast.LENGTH_SHORT).show();
                                 Log.d(TAG, "Avatar updated from gallery: " + newAvatarPath);
                                 
                                 // 强制刷新整个页面
@@ -484,18 +459,44 @@ public class MeFragment extends Fragment {
     }
 
     /**
-     * 强制刷新整个Fragment页面
+     * 刷新头像显示
+     * 不再使用Fragment替换方式，直接更新UI元素，避免Fragment状态不一致导致的崩溃
      */
     private void refreshFragment() {
-        if (getFragmentManager() != null) {
-            // 创建当前Fragment的新实例
-            FragmentTransaction transaction = getFragmentManager().beginTransaction();
-            // 替换当前Fragment为新实例
-            MeFragment newFragment = new MeFragment();
-            transaction.replace(getId(), newFragment);
-            // 提交事务
-            transaction.commit();
-            Log.d(TAG, "Fragment refreshed to show updated avatar");
+        // 先通过ViewModel更新头像URI
+        loadLocalAvatar();
+        
+        // 为了确保头像立即更新，直接从ViewModel获取最新的头像URI并设置到ImageView
+        String latestAvatarUri = meViewModel.getAvatarUri().getValue();
+        if (latestAvatarUri != null && !latestAvatarUri.isEmpty()) {
+            refreshAvatarImage(latestAvatarUri);
+        }
+        Log.d(TAG, "Refreshed avatar display with immediate UI update");
+    }
+    
+    /**
+     * 专用的头像刷新方法，避免代码重复
+     */
+    private void refreshAvatarImage(String avatarPath) {
+        if (avatarPath != null && !avatarPath.isEmpty()) {
+            try {
+                File avatarFile = new File(avatarPath);
+                if (avatarFile.exists()) {
+                    // 使用FileProvider生成安全的URI
+                    Uri avatarUri = FileProvider.getUriForFile(
+                            requireContext(),
+                            requireContext().getPackageName() + ".fileprovider",
+                            avatarFile);
+                    
+                    // 清除ImageView缓存，强制重新加载图像
+                    binding.avatarImage.setImageURI(null);
+                    binding.avatarImage.setImageURI(avatarUri);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to refresh avatar image: " + avatarPath, e);
+                binding.avatarImage.setImageURI(null);
+                binding.avatarImage.setImageURI(Uri.parse(avatarPath));
+            }
         }
     }
 
