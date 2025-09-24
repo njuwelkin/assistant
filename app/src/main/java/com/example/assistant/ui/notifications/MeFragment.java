@@ -355,13 +355,25 @@ public class MeFragment extends Fragment {
     }
 
     /**
-     * 导航到个人资料编辑页面
+     * 导航到家长电话设置页面
      */
     private void navigateToProfileEdit() {
-        // 这里可以实现跳转到个人资料编辑页面的逻辑
-        Toast.makeText(requireContext(), "跳转到个人资料编辑页面", Toast.LENGTH_SHORT).show();
-        // 实际项目中这里应该使用Navigation组件进行页面跳转
-        // NavHostFragment.findNavController(this).navigate(R.id.action_navigation_me_to_profileEditFragment);
+        // 先验证家长密码，然后再跳转到家长电话设置页面
+        NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_activity_main);
+        
+        // 检查家长密码是否已设置
+        if (meViewModel.isParentPasswordSet().getValue() != null && meViewModel.isParentPasswordSet().getValue()) {
+            // 家长密码已设置，跳转到密码验证页面
+            Bundle bundle = new Bundle();
+            // 使用字符串形式的资源名称，避免R文件未更新的问题
+            int parentPhoneFragmentId = getResources().getIdentifier("parent_phone_fragment", "id", requireActivity().getPackageName());
+            bundle.putInt(ParentPasswordVerifyFragment.ARG_DESTINATION, parentPhoneFragmentId);
+            navController.navigate(R.id.parent_password_verify_fragment, bundle);
+        } else {
+            // 家长密码未设置，直接跳转到家长电话设置页面
+            int parentPhoneFragmentId = getResources().getIdentifier("parent_phone_fragment", "id", requireActivity().getPackageName());
+            navController.navigate(parentPhoneFragmentId);
+        }
     }
 
     /**

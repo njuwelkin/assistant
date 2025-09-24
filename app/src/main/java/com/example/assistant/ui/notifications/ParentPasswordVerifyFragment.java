@@ -20,7 +20,7 @@ public class ParentPasswordVerifyFragment extends Fragment {
 
     private FragmentParentPasswordVerifyBinding binding;
     private MeViewModel meViewModel;
-    private static final String ARG_DESTINATION = "destination";
+    public static final String ARG_DESTINATION = "destination";
 
     public static ParentPasswordVerifyFragment newInstance(int destination) {
         ParentPasswordVerifyFragment fragment = new ParentPasswordVerifyFragment();

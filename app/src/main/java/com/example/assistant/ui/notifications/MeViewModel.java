@@ -31,7 +31,8 @@ public class MeViewModel extends ViewModel {
     // 用户设置相关数据
     private final MutableLiveData<Boolean> parentPasswordSet = new MutableLiveData<>();
     private final MutableLiveData<String> lastLoginTime = new MutableLiveData<>();
-    
+    private final MutableLiveData<String> parentPhoneNumber = new MutableLiveData<>(); // 家长电话号码
+
     // 使用时间管理相关数据
     private final MutableLiveData<Integer> dailyTimeLimit = new MutableLiveData<>(); // 单位：分钟
     private final MutableLiveData<String> timePeriodStart = new MutableLiveData<>();
@@ -76,6 +77,12 @@ public class MeViewModel extends ViewModel {
                 } catch (NumberFormatException e) {
                     Log.e("MeViewModel", "Failed to parse daily time limit: " + savedTimeLimit, e);
                 }
+            }
+            
+            // 从数据库加载家长电话号码设置
+            String savedPhoneNumber = databaseHelper.getUserSetting(DatabaseHelper.KEY_PARENT_PHONE_NUMBER);
+            if (savedPhoneNumber != null && !savedPhoneNumber.isEmpty()) {
+                parentPhoneNumber.setValue(savedPhoneNumber);
             }
             
             // 从数据库加载时段设置
@@ -333,6 +340,25 @@ public class MeViewModel extends ViewModel {
         // 清理资源
         if (databaseHelper != null) {
             databaseHelper.close();
+        }
+    }
+    
+    // 获取家长电话号码的LiveData
+    public LiveData<String> getParentPhoneNumber() {
+        return parentPhoneNumber;
+    }
+    
+    // 设置家长电话号码
+    public void setParentPhoneNumber(Context context, String phoneNumber) {
+        parentPhoneNumber.setValue(phoneNumber);
+        
+        // 如果数据库已初始化，保存到数据库
+        if (databaseHelper == null && context != null) {
+            initDatabase(context);
+        }
+        
+        if (databaseHelper != null) {
+            databaseHelper.saveUserSetting(DatabaseHelper.KEY_PARENT_PHONE_NUMBER, phoneNumber);
         }
     }
 }

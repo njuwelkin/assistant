@@ -42,6 +42,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     
     // 设置键名常量
     public static final String KEY_DAILY_TIME_LIMIT = "daily_time_limit"; // 每日使用时长限制(分钟)
+    public static final String KEY_PARENT_PHONE_NUMBER = "parent_phone_number"; // 家长电话号码
 
     // 时段表名
     private static final String TABLE_TIME_PERIODS = "time_periods";

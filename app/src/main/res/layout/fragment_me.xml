@@ -208,7 +208,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="个人资料编辑"
+                android:text="家长电话设置"
                 android:textSize="16sp"
                 android:textColor="@color/black" />
 

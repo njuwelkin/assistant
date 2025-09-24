@@ -47,4 +47,11 @@
         android:name="com.example.assistant.ui.notifications.ParentPasswordFragment"
         android:label="家长密码设置"
         tools:layout="@layout/fragment_parent_password" />
+
+    <!-- 家长电话设置页面 -->
+    <fragment
+        android:id="@+id/parent_phone_fragment"
+        android:name="com.example.assistant.ui.notifications.ParentPhoneFragment"
+        android:label="家长电话设置"
+        tools:layout="@layout/fragment_parent_phone" />
 </navigation>
