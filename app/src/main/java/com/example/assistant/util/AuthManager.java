@@ -1,3 +1,7 @@
+/**
+ * MIT License
+ * Copyright (c) 2023 illu@biubiu.org
+ */
 package com.example.assistant.util;
 
 import android.content.Context;
