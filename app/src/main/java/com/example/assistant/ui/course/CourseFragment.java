@@ -189,6 +189,12 @@ public class CourseFragment extends Fragment {
         // 当从其他页面切换回来时，重新创建TabAdapter以重新创建CoursesFragment
         // 注意：这会导致所有标签页的Fragment都被重新创建
         initOrResetTabAdapter();
+        
+        // 无论之前选择了什么日期，切回时总是将选中日期设置为今天
+        loadCoursesForCurrentDay();
+        
+        // 更新日历UI显示，确保选中的日期正确高亮
+        updateCalendar();
     }
     
     private void updateCalendar() {
