@@ -156,8 +156,21 @@ public class CoursesFragment extends Fragment {
     }
 
     @Override
+    public void onStart() {
+        super.onStart();
+        // 空实现
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 空实现
+    }
+
+    @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+        courseAdapter = null; // 同时将courseAdapter也置为null，确保重建时正确初始化
     }
 }

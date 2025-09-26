@@ -41,6 +41,7 @@ public class CourseFragment extends Fragment {
     private FragmentCourseBinding binding;
     private CourseViewModel courseViewModel;
     private CourseTabAdapter courseTabAdapter;
+    private TabLayoutMediator tabLayoutMediator;
     private Calendar calendar;
     private int currentMonth;
     private int currentYear;
@@ -62,16 +63,65 @@ public class CourseFragment extends Fragment {
         dayTextViews = new TextView[42]; // 最大6行7列
         initDayTextViews();
 
-        // 设置ViewPager2和TabLayout
+        // 初始化标签页适配器和数据观察
+        initOrResetTabAdapter();
+
+        // 初始化UI
+        updateCalendar();
+        updateMonthYearDisplay();
+        loadCoursesForCurrentDay();
+
+        // 设置按钮点击监听器
+        binding.prevMonthButton.setOnClickListener(v -> { onPrevMonth(); });
+        binding.nextMonthButton.setOnClickListener(v -> { onNextMonth(); });
+
+
+
+        return root;
+    }
+
+    private void initDayTextViews() {
+        // 初始化42个日期文本视图
+        int[] ids = new int[] {
+                R.id.day1, R.id.day2, R.id.day3, R.id.day4, R.id.day5, R.id.day6, R.id.day7,
+                R.id.day8, R.id.day9, R.id.day10, R.id.day11, R.id.day12, R.id.day13, R.id.day14,
+                R.id.day15, R.id.day16, R.id.day17, R.id.day18, R.id.day19, R.id.day20, R.id.day21,
+                R.id.day22, R.id.day23, R.id.day24, R.id.day25, R.id.day26, R.id.day27, R.id.day28,
+                R.id.day29, R.id.day30, R.id.day31, R.id.day32, R.id.day33, R.id.day34, R.id.day35,
+                R.id.day36, R.id.day37, R.id.day38, R.id.day39, R.id.day40, R.id.day41, R.id.day42
+        };
+
+        for (int i = 0; i < ids.length; i++) {
+            dayTextViews[i] = binding.getRoot().findViewById(ids[i]);
+            final int position = i;
+            dayTextViews[i].setOnClickListener(v -> {
+                // 检查文本是否为空
+                if (!dayTextViews[position].getText().toString().trim().isEmpty()) {
+                    int day = Integer.parseInt(dayTextViews[position].getText().toString());
+                    onDaySelected(day);
+                }
+            });
+        }
+    }
+
+    /**
+     * 初始化或重置标签页适配器，重新创建所有Fragment
+     */
+    private void initOrResetTabAdapter() {
         ViewPager2 viewPager = binding.viewPager;
         TabLayout tabLayout = binding.tabLayout;
         
-        // 初始化标签页适配器
+        // 移除之前的TabLayoutMediator连接
+        if (tabLayoutMediator != null) {
+            tabLayoutMediator.detach();
+        }
+        
+        // 重新创建标签页适配器，这会创建新的Fragment实例
         courseTabAdapter = new CourseTabAdapter(getActivity());
         viewPager.setAdapter(courseTabAdapter);
         
-        // 连接TabLayout和ViewPager2
-        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+        // 重新连接TabLayout和ViewPager2
+        tabLayoutMediator = new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             // 设置标签文本
             switch (position) {
                 case 0:
@@ -84,17 +134,17 @@ public class CourseFragment extends Fragment {
                     tab.setText("活动");
                     break;
             }
-        }).attach();
-
-        // 初始化UI
-        updateCalendar();
-        updateMonthYearDisplay();
-        loadCoursesForCurrentDay();
-
-        // 设置按钮点击监听器
-        binding.prevMonthButton.setOnClickListener(v -> { onPrevMonth(); });
-        binding.nextMonthButton.setOnClickListener(v -> { onNextMonth(); });
-
+        });
+        tabLayoutMediator.attach();
+        
+        // 重新观察数据变化并传递给新的Fragment
+        setupDataObservers();
+    }
+    
+    /**
+     * 设置数据观察者，将数据传递给标签页Fragment
+     */
+    private void setupDataObservers() {
         // 监听课程数据变化，将数据传递给课程标签页Fragment
         courseViewModel.getCourses().observe(getViewLifecycleOwner(), courses -> {
             Log.d("CourseFragment", "接收到课程数据更新，数量: " + (courses != null ? courses.size() : 0));
@@ -129,34 +179,18 @@ public class CourseFragment extends Fragment {
                 }
             }
         });
-
-        return root;
     }
-
-    private void initDayTextViews() {
-        // 初始化42个日期文本视图
-        int[] ids = new int[] {
-                R.id.day1, R.id.day2, R.id.day3, R.id.day4, R.id.day5, R.id.day6, R.id.day7,
-                R.id.day8, R.id.day9, R.id.day10, R.id.day11, R.id.day12, R.id.day13, R.id.day14,
-                R.id.day15, R.id.day16, R.id.day17, R.id.day18, R.id.day19, R.id.day20, R.id.day21,
-                R.id.day22, R.id.day23, R.id.day24, R.id.day25, R.id.day26, R.id.day27, R.id.day28,
-                R.id.day29, R.id.day30, R.id.day31, R.id.day32, R.id.day33, R.id.day34, R.id.day35,
-                R.id.day36, R.id.day37, R.id.day38, R.id.day39, R.id.day40, R.id.day41, R.id.day42
-        };
-
-        for (int i = 0; i < ids.length; i++) {
-            dayTextViews[i] = binding.getRoot().findViewById(ids[i]);
-            final int position = i;
-            dayTextViews[i].setOnClickListener(v -> {
-                // 检查文本是否为空
-                if (!dayTextViews[position].getText().toString().trim().isEmpty()) {
-                    int day = Integer.parseInt(dayTextViews[position].getText().toString());
-                    onDaySelected(day);
-                }
-            });
-        }
+    
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d("CourseFragment", "onResume: 页面重新可见");
+        
+        // 当从其他页面切换回来时，重新创建TabAdapter以重新创建CoursesFragment
+        // 注意：这会导致所有标签页的Fragment都被重新创建
+        initOrResetTabAdapter();
     }
-
+    
     private void updateCalendar() {
         // 清空所有日期文本视图
         for (TextView textView : dayTextViews) {
